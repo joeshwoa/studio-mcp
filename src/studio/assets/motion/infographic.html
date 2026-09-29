@@ -1,0 +1,128 @@
+<style>
+.ig { position: absolute; inset: 0; padding: 7% 8%; display: flex; flex-direction: column; }
+.ig h2 { margin: 0 0 calc(var(--u) * 50); font-weight: 800; font-size: calc(var(--u) * 72); color: var(--text); letter-spacing: -0.02em; line-height: 1.1; }
+:root[dir=rtl] .ig h2 { letter-spacing: 0; line-height: 1.35; }
+.ig h2 .emph .winner { color: var(--primary); }
+.ig .rows { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+.ig .row { display: grid; grid-template-columns: var(--lw) 1fr; align-items: center; column-gap: calc(var(--u) * 32); }
+.ig .row .l { font-size: calc(var(--u) * 46); font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: end; }
+.ig .track { position: relative; height: 100%; display: flex; align-items: center; }
+.ig .b { height: 62%; border-radius: calc(var(--u) * 10); background: linear-gradient(90deg, var(--primary), var(--accent)); transform-origin: left center; min-width: 2px; }
+:root[dir=rtl] .ig .b { transform-origin: right center; background: linear-gradient(-90deg, var(--primary), var(--accent)); }
+.ig .v { position: absolute; font-weight: 800; font-size: calc(var(--u) * 46); color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ig .row.top .b { background: linear-gradient(90deg, var(--accent), var(--primary)); }
+/* columns */
+.ig .cols { flex: 1; display: flex; align-items: flex-end; justify-content: space-around; gap: calc(var(--u) * 30); padding-top: calc(var(--u) * 60); position: relative; }
+.ig .cc { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: calc(var(--u) * 14); min-width: 0; }
+.ig .cc .b { width: 70%; height: auto; transform-origin: bottom center; background: linear-gradient(0deg, var(--primary), var(--accent)); border-radius: calc(var(--u) * 12) calc(var(--u) * 12) 0 0; }
+.ig .cc .v { position: static; }
+.ig .cc .l { font-size: calc(var(--u) * 42); color: var(--muted); font-weight: 600; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.ig .axis { position: absolute; left: 0; right: 0; bottom: calc(var(--u) * 58); height: 2px; background: rgba(255,255,255,.2); }
+/* donut */
+.ig .dn { flex: 1; display: flex; align-items: center; justify-content: center; gap: calc(var(--u) * 90); }
+.ig.portrait .dn { flex-direction: column; gap: calc(var(--u) * 60); }
+.ig .dn svg { overflow: visible; }
+.ig .legend { display: flex; flex-direction: column; gap: calc(var(--u) * 22); }
+.ig .lg { display: flex; align-items: center; gap: calc(var(--u) * 20); font-size: calc(var(--u) * 50); color: var(--text); font-weight: 600; }
+.ig .lg i { width: calc(var(--u) * 28); height: calc(var(--u) * 28); border-radius: calc(var(--u) * 8); flex: none; }
+.ig .lg .pc { color: var(--muted); font-weight: 500; margin-inline-start: auto; padding-inline-start: calc(var(--u) * 30); font-variant-numeric: tabular-nums; }
+.ig .total { font-weight: 800; fill: var(--text); }
+.ig .tl { fill: var(--muted); font-weight: 500; }
+</style>
+<script>
+(() => {
+  const data = P.data || [];
+  const kind = P.kind || 'bars';
+  const T = setDuration(P.duration || 6);
+  const rtlData = data.some(d => isRTL(d.label)) || isRTL(P.title);
+  if (rtlData) document.documentElement.dir = 'rtl';
+  backdrop({dur: T, o1: .16, o2: .1});
+  const box = el('div', 'ig' + (PORTRAIT ? ' portrait' : ''));
+  if (P.title) { const h = el('h2', 'head', box); const ws = words(h, P.title); fit(h, W * 0.84, H * 0.22, 24);
+    ws.forEach((w, i) => A(w.inner, [{transform: 'translateY(110%)'}, {transform: 'none'}], 0.15 + i * 0.06, 0.7, 'out')); }
+  const unit = P.unit || '';
+  const vals = data.map(d => d.value);
+  const max = Math.max(...vals.map(Math.abs), 1e-9);
+  const dec = vals.some(v => Math.abs(v % 1) > 1e-9) ? 1 : 0;
+  const fv = (v) => fmtNum(v, dec) + unit;
+  const RUN = Math.min(2.2, T * 0.4), t0 = P.title ? 0.7 : 0.3;
+  const counters = [];
+  if (kind === 'columns') {
+    const cols = el('div', 'cols', box); el('div', 'axis', cols);
+    data.forEach((d, i) => {
+      const cc = el('div', 'cc', cols);
+      const v = el('div', 'v head', cc, fv(0)); const b = el('div', 'b', cc); const l = el('div', 'l', cc, d.label);
+      const at = t0 + i * 0.1;
+      requestAnimationFrame(() => {});
+      b.dataset.frac = Math.max(0, d.value) / max;
+      A(b, [{transform: 'scaleY(0)'}, {transform: 'scaleY(1)'}], at, RUN, 'out');
+      A(v, [{opacity: 0}, {opacity: 1}], at, 0.4, 'out');
+      A(l, [{opacity: 0, transform: `translateY(${20 * U}px)`}, {opacity: 1, transform: 'none'}], at, 0.6, 'out');
+      counters.push({node: v, value: d.value, at});
+    });
+    // bar heights: available height minus value + label rows
+    const avail = cols.clientHeight - 58 * U - 60 * U - 60 * U;
+    [...cols.querySelectorAll('.cc .b')].forEach(b => { b.style.height = Math.max(2, avail * b.dataset.frac) + 'px'; });
+    if (data.length > 5) cols.querySelectorAll('.l').forEach(l => l.style.fontSize = 28 * U + 'px');
+  } else if (kind === 'donut') {
+    const dn = el('div', 'dn', box);
+    const R = Math.min(W, H) * (PORTRAIT ? 0.26 : 0.28), sw = R * 0.34;
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg'); dn.appendChild(svg);
+    svg.setAttribute('width', 2 * R + sw); svg.setAttribute('height', 2 * R + sw);
+    svg.setAttribute('viewBox', `${-R - sw / 2} ${-R - sw / 2} ${2 * R + sw} ${2 * R + sw}`);
+    const pal = [C.primary, C.accent, '#38bdf8', '#a78bfa', '#34d399', '#f472b6', '#fb923c', '#e5e7eb'];
+    const tot = vals.reduce((a, b) => a + Math.max(0, b), 0) || 1;
+    let acc = 0;
+    const legend = el('div', 'legend', dn);
+    data.forEach((d, i) => {
+      const frac = Math.max(0, d.value) / tot;
+      const c = document.createElementNS(ns, 'circle'); c.setAttribute('r', R); c.setAttribute('fill', 'none');
+      c.setAttribute('stroke', pal[i % pal.length]); c.setAttribute('stroke-width', sw); c.setAttribute('pathLength', '1');
+      const gap = data.length > 1 ? 0.004 : 0;
+      c.setAttribute('transform', `rotate(${-90 + acc * 360 * (rtlData ? -1 : 1)})${rtlData ? ' scale(1,-1) rotate(0)' : ''}`);
+      if (rtlData) c.setAttribute('transform', `scale(-1,1) rotate(${-90 + acc * 360})`);
+      c.style.strokeDasharray = `0 1`;
+      svg.appendChild(c);
+      const at = t0 + acc * RUN;
+      const len = Math.max(0, frac - gap);
+      A(c, [{strokeDasharray: '0 1'}, {strokeDasharray: `${len} ${1 - len}`}], at, Math.max(0.3, frac * RUN), 'out3');
+      acc += frac;
+      const lg = el('div', 'lg', legend); const sq = el('i', '', lg); sq.style.background = pal[i % pal.length];
+      el('span', '', lg, d.label); const pc = el('span', 'pc', lg, fmtNum(frac * 100, 0) + '%');
+      A(lg, [{opacity: 0, transform: `translateX(${(rtlData ? -1 : 1) * 30 * U}px)`}, {opacity: 1, transform: 'none'}], t0 + i * 0.12, 0.6, 'out');
+    });
+    const tt = document.createElementNS(ns, 'text'); tt.setAttribute('class', 'total head'); tt.setAttribute('text-anchor', 'middle');
+    tt.setAttribute('dominant-baseline', 'central'); tt.setAttribute('font-size', R * 0.42); tt.setAttribute('y', -R * 0.06); svg.appendChild(tt);
+    const tl = document.createElementNS(ns, 'text'); tl.setAttribute('class', 'tl'); tl.setAttribute('text-anchor', 'middle');
+    tl.setAttribute('font-size', R * 0.14); tl.setAttribute('y', R * 0.3); tl.textContent = P.total_label || (rtlData ? 'الإجمالي' : 'TOTAL'); svg.appendChild(tl);
+    counters.push({node: tt, value: tot, at: t0});
+    A(svg, [{transform: 'rotate(-30deg) scale(.85)', opacity: 0}, {transform: 'none', opacity: 1}], t0 - 0.2, 1.2, 'out');
+  } else { // bars
+    const rows = el('div', 'rows', box);
+    const n = data.length;
+    const rowH = Math.min(150 * U, (H * (P.title ? 0.62 : 0.76)) / n);
+    // label column width = widest label (capped)
+    const probe = el('span', '', box); probe.style.cssText = `position:absolute;visibility:hidden;font-size:${46 * U}px;font-weight:600;white-space:nowrap`;
+    let lw = 0; data.forEach(d => { probe.textContent = d.label; lw = Math.max(lw, probe.offsetWidth); }); probe.remove();
+    box.style.setProperty('--lw', Math.min(lw + 4, W * 0.3) + 'px');
+    const trackW = W * 0.84 - Math.min(lw + 4, W * 0.3) - 32 * U - 180 * U;
+    const top = vals.indexOf(Math.max(...vals));
+    data.forEach((d, i) => {
+      const row = el('div', 'row' + (i === top ? ' top' : ''), rows); row.style.height = rowH + 'px';
+      const l = el('div', 'l', row, d.label);
+      const tr = el('div', 'track', row); const b = el('div', 'b', tr);
+      const w = Math.max(2, trackW * Math.max(0, d.value) / max); b.style.width = w + 'px';
+      const v = el('div', 'v head', tr, fv(0)); v.style[rtlData ? 'right' : 'left'] = (w + 22 * U) + 'px';
+      const at = t0 + i * 0.12;
+      A(l, [{opacity: 0, transform: `translateX(${(rtlData ? 1 : -1) * 24 * U}px)`}, {opacity: 1, transform: 'none'}], at, 0.6, 'out');
+      A(b, [{transform: 'scaleX(0)'}, {transform: 'scaleX(1)'}], at, RUN, 'out');
+      // value label rides the end of the bar
+      A(v, [{transform: `translateX(${(rtlData ? 1 : -1) * w}px)`, opacity: 0}, {transform: 'none', opacity: 1}], at, RUN, 'out');
+      counters.push({node: v, value: d.value, at});
+    });
+  }
+  tick((t) => counters.forEach(c => { const p = ease.outExpo(prog(t, c.at, RUN)); c.node.textContent = kind === 'donut' ? fmtNum(c.value * p, dec) + unit : fv(c.value * p); }));
+  AO(box, [{opacity: 1}, {opacity: 0}], T - 0.45, 0.45, 'in');
+})();
+</script>

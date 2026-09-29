@@ -1,0 +1,174 @@
+{
+ "_meta": {
+  "title": "LTX-Video image \u2192 video (first frame = your image)",
+  "needs": [
+   "ComfyUI-GGUF"
+  ]
+ },
+ "nodes": {
+  "L1": {
+   "class_type": "CheckpointLoaderSimple",
+   "inputs": {
+    "ckpt_name": "$ckpt"
+   }
+  },
+  "L2": {
+   "class_type": "CLIPLoaderGGUF",
+   "inputs": {
+    "clip_name": "$t5",
+    "type": "ltxv"
+   }
+  },
+  "10": {
+   "class_type": "CLIPTextEncode",
+   "inputs": {
+    "text": "$prompt",
+    "clip": [
+     "L2",
+     0
+    ]
+   }
+  },
+  "11": {
+   "class_type": "CLIPTextEncode",
+   "inputs": {
+    "text": "$negative",
+    "clip": [
+     "L2",
+     0
+    ]
+   }
+  },
+  "41": {
+   "class_type": "LTXVScheduler",
+   "inputs": {
+    "steps": "$steps",
+    "max_shift": 2.05,
+    "base_shift": 0.95,
+    "stretch": true,
+    "terminal": 0.1,
+    "latent": [
+     "40",
+     2
+    ]
+   }
+  },
+  "42": {
+   "class_type": "KSamplerSelect",
+   "inputs": {
+    "sampler_name": "euler"
+   }
+  },
+  "43": {
+   "class_type": "SamplerCustom",
+   "inputs": {
+    "model": [
+     "L1",
+     0
+    ],
+    "add_noise": true,
+    "noise_seed": "$seed",
+    "cfg": "$cfg",
+    "positive": [
+     "44",
+     0
+    ],
+    "negative": [
+     "44",
+     1
+    ],
+    "sampler": [
+     "42",
+     0
+    ],
+    "sigmas": [
+     "41",
+     0
+    ],
+    "latent_image": [
+     "40",
+     2
+    ]
+   }
+  },
+  "14": {
+   "class_type": "VAEDecode",
+   "inputs": {
+    "samples": [
+     "43",
+     0
+    ],
+    "vae": [
+     "L1",
+     2
+    ]
+   }
+  },
+  "15": {
+   "class_type": "SaveImage",
+   "inputs": {
+    "images": [
+     "14",
+     0
+    ],
+    "filename_prefix": "$prefix"
+   }
+  },
+  "20": {
+   "class_type": "LoadImage",
+   "inputs": {
+    "image": "$image"
+   }
+  },
+  "21": {
+   "class_type": "LTXVPreprocess",
+   "inputs": {
+    "image": [
+     "20",
+     0
+    ],
+    "img_compression": 35
+   }
+  },
+  "40": {
+   "class_type": "LTXVImgToVideo",
+   "inputs": {
+    "positive": [
+     "10",
+     0
+    ],
+    "negative": [
+     "11",
+     0
+    ],
+    "vae": [
+     "L1",
+     2
+    ],
+    "image": [
+     "21",
+     0
+    ],
+    "width": "$width",
+    "height": "$height",
+    "length": "$length",
+    "batch_size": 1,
+    "strength": 1.0
+   }
+  },
+  "44": {
+   "class_type": "LTXVConditioning",
+   "inputs": {
+    "positive": [
+     "40",
+     0
+    ],
+    "negative": [
+     "40",
+     1
+    ],
+    "frame_rate": "$fps"
+   }
+  }
+ }
+}

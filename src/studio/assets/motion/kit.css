@@ -1,0 +1,19 @@
+html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
+body { background: transparent; color: var(--text); font-family: var(--font-body), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased; text-rendering: geometricPrecision; font-kerning: normal; }
+body.alpha { background: transparent !important; }
+#stage { position: absolute; inset: 0; overflow: hidden; }
+* { box-sizing: border-box; }
+.head { font-family: var(--font-head), var(--font-body), sans-serif; }
+.bd { position: absolute; inset: 0; overflow: hidden; background: var(--background); }
+.blob { position: absolute; border-radius: 50%; will-change: transform; }
+/* static film grain: a small noise tile made once on a canvas (cheap to paint, compresses well, hides banding) */
+.grain { position: absolute; inset: 0; pointer-events: none; opacity: .07; background-size: calc(var(--u) * 256); image-rendering: auto; }
+.vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,.45) 100%); }
+.wmask { display: inline-block; overflow: hidden; vertical-align: bottom; padding: .08em .02em .16em; margin: -.08em -.02em -.16em; }
+.winner, .cinner { display: inline-block; will-change: transform; }
+.wgroup { display: inline-block; white-space: nowrap; }
+.cmask { display: inline-block; overflow: hidden; vertical-align: bottom; padding: .08em 0 .16em; margin: -.08em 0 -.16em; }
+.ico { display: inline-flex; width: 1em; height: 1em; }
+.ico svg { width: 100%; height: 100%; }
+.shadow { text-shadow: 0 calc(var(--u) * 3) calc(var(--u) * 14) rgba(0,0,0,.45); }

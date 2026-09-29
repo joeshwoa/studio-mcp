@@ -1,0 +1,112 @@
+<style>
+.kt { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 0 8%; }
+.kt .beat { position: absolute; left: 8%; right: 8%; text-align: center; font-weight: 800; line-height: 1.08; letter-spacing: -0.02em; color: var(--text); }
+:root[dir=rtl] .kt .beat { letter-spacing: 0; line-height: 1.35; }
+.kt .emph .winner { color: var(--hl-text, var(--background)); position: relative; }
+.kt .emph { position: relative; }
+.kt .hl { position: absolute; left: -.08em; right: -.08em; top: .12em; bottom: .02em; background: var(--accent); border-radius: .08em; z-index: -1; transform-origin: left; }
+:root[dir=rtl] .kt .hl { transform-origin: right; top: .22em; bottom: .12em; }
+.kt .emph .winner { z-index: 1; }
+/* stack */
+.ks { position: absolute; left: 9%; right: 9%; top: 0; display: flex; flex-direction: column; gap: calc(var(--u) * 6); }
+.ks .line { white-space: nowrap; font-weight: 800; line-height: 1.06; letter-spacing: -0.02em; color: var(--text); }
+:root[dir=rtl] .ks .line { letter-spacing: 0; line-height: 1.3; }
+.ks .line .emph .winner { color: var(--primary); }
+/* type */
+.ty { position: absolute; left: 10%; right: 10%; top: 50%; transform: translateY(-50%); font-weight: 700; line-height: 1.2; color: var(--text); }
+.ty .caret { display: inline-block; width: .08em; height: 1em; background: var(--accent); vertical-align: -0.12em; margin-inline-start: .06em; }
+.ty .emph { color: var(--primary); }
+.ty .ch { display: inline; }
+</style>
+<script>
+(() => {
+  const style = P.style || 'punch';
+  const bts = beats(P.text || 'Make it *move*|Make it *yours*');
+  const nW = (b) => b.split(/\s+/).filter(Boolean).length;
+  const nC = (b) => b.replace(/\*/g, '').length;
+  // natural timing (seconds) per beat
+  const plan = bts.map(b => style === 'type' ? 0.5 + (isRTL(b) ? nW(b) * 0.22 : nC(b) * 0.055) + 1.1
+                                             : 0.35 + nW(b) * (style === 'stack' ? 0.16 : 0.22) + (style === 'stack' ? 0.7 : 0.95));
+  let natural = plan.reduce((a, b) => a + b, 0) + 0.8;
+  const k = P.duration > 0 ? P.duration / natural : 1;   // stretch/compress to a given duration
+  const T = setDuration(natural * k);
+  backdrop({dur: T});
+  const wrap = el('div', style === 'stack' ? 'ks' : (style === 'type' ? 'ty' : 'kt'));
+  const base = (PORTRAIT ? 120 : 150) * U;
+  if (style === 'punch') {
+    let t = 0.25 * k;
+    bts.forEach((b, bi) => {
+      const beat = el('div', 'beat head', wrap);
+      beat.style.fontSize = (nW(b) <= 2 ? base * 1.35 : base) + 'px';
+      const ws = words(beat, b);
+      ws.forEach(w => { w.mask.style.overflow = 'visible'; if (w.emph) { const hl = el('span', 'hl', null); w.mask.insertBefore(hl, w.inner); w.mask.style.overflow = 'visible'; w.hl = hl; } });
+      fit(beat, W * 0.84, H * 0.7, 30);
+      const dur = plan[bi] * k, last = bi === bts.length - 1;
+      ws.forEach((w, i) => {
+        const at = t + i * 0.22 * k;
+        A(w.inner, [{transform: 'scale(1.9)', opacity: 0, filter: `blur(${12 * U}px)`}, {transform: 'scale(1)', opacity: 1, filter: 'blur(0)'}], at, 0.42 * Math.min(1, k * 1.2), 'out');
+        if (w.hl) A(w.hl, [{transform: 'scaleX(0)'}, {transform: 'scaleX(1)'}], at + 0.15 * k, 0.45 * k, 'out');
+      });
+      if (!last) AO(beat, [{opacity: 1, transform: 'none'}, {opacity: 0, transform: `translateY(${-60 * U}px) scale(.96)`}], t + dur - 0.28 * k, 0.28 * k, 'in');
+      else AO(beat, [{opacity: 1}, {opacity: 0}], T - 0.45, 0.45, 'in');
+      t += dur;
+    });
+  } else if (style === 'stack') {
+    const size = (PORTRAIT ? 104 : 118) * U;
+    let t = 0.25 * k;
+    const lines = bts.map((b, bi) => {
+      const ln = el('div', 'line head', wrap); ln.style.fontSize = size + 'px';
+      const ws = words(ln, b); fit(ln, W * 0.82, 1e9, 24);
+      return {ln, ws};
+    });
+    // lay out, then scroll the stack so the newest line sits at ~60% height
+    const tops = lines.map(l => l.ln.offsetTop), hs = lines.map(l => l.ln.offsetHeight);
+    const anchor = H * (PORTRAIT ? 0.62 : 0.66);
+    const scrollKf = [];
+    lines.forEach((l, bi) => {
+      const at = t;
+      l.ws.forEach((w, i) => A(w.inner, [{transform: 'translateY(110%)'}, {transform: 'none'}], at + i * 0.16 * k, 0.6, 'out'));
+      if (bi > 0) lines.slice(0, bi).forEach(p => A(p.ln, [{opacity: 1}, {opacity: .32}], at, 0.5, 'out3', {composite: 'replace'}));
+      const totalH = tops[tops.length - 1] + hs[hs.length - 1];
+      scrollKf.push({at, y: totalH <= H * 0.8 ? (H - totalH) / 2 : Math.min(H * 0.1, anchor - (tops[bi] + hs[bi]))});
+      t += plan[bi] * k;
+    });
+    // piecewise scroll: one animation per step (each fills forward, later ones override)
+    let prevY = scrollKf[0].y + 40 * U;
+    scrollKf.forEach((s, i) => { A(wrap, [{transform: `translateY(${prevY}px)`}, {transform: `translateY(${s.y}px)`}], s.at, 0.7, 'out', {fill: i === 0 ? 'both' : 'forwards'}); prevY = s.y; });
+    AO(wrap, [{opacity: 1}, {opacity: 0}], T - 0.45, 0.45, 'in');
+  } else { // type
+    wrap.style.fontSize = (PORTRAIT ? 96 : 124) * U + 'px';
+    const line = el('div', 'head', wrap);
+    const caret = el('span', 'caret', null);
+    let t = 0.35 * k;
+    const segsAll = [];
+    bts.forEach((b, bi) => {
+      const holder = el('span', '', line);
+      const units = [];
+      const rtl = isRTL(b);
+      for (const w of b.split(/(\s+)/)) {
+        if (!w) continue;
+        const m = /^\*(.+)\*([.,!?،؟:;]*)$/.exec(w); const txt = m ? m[1] + m[2] : w;
+        if (rtl || /^\s+$/.test(w)) { const s = el('span', 'ch' + (m ? ' emph' : ''), holder, txt); units.push(s); }
+        else for (const ch of txt) units.push(el('span', 'ch' + (m ? ' emph' : ''), holder, ch));
+      }
+      const step = (rtl ? 0.22 : 0.055) * k;
+      const last = bi === bts.length - 1;
+      segsAll.push({holder, start: t, end: t + units.length * step, units, step, gone: last ? 1e9 : t + units.length * step + 0.8 * k});
+      t += plan[bi] * k;
+    });
+    line.appendChild(caret);
+    tick((tt) => {
+      let typing = false;
+      for (const sg of segsAll) {
+        sg.holder.style.display = tt >= sg.gone ? 'none' : '';
+        sg.units.forEach((u, i) => { u.style.display = tt >= sg.start + i * sg.step ? '' : 'none'; });
+        if (tt >= sg.start && tt <= sg.end + 0.05) typing = true;
+      }
+      caret.style.visibility = typing || (Math.floor(tt / 0.5) % 2 === 0) ? 'visible' : 'hidden';
+    });
+    AO(wrap, [{opacity: 1}, {opacity: 0}], T - 0.4, 0.4, 'in');
+  }
+})();
+</script>

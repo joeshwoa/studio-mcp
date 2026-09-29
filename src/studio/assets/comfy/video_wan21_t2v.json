@@ -1,0 +1,119 @@
+{
+ "_meta": {
+  "title": "Wan 2.1 1.3B text \u2192 video",
+  "needs": [
+   "ComfyUI-GGUF"
+  ]
+ },
+ "nodes": {
+  "L1": {
+   "class_type": "UNETLoader",
+   "inputs": {
+    "unet_name": "$unet",
+    "weight_dtype": "default"
+   }
+  },
+  "L2": {
+   "class_type": "CLIPLoaderGGUF",
+   "inputs": {
+    "clip_name": "$umt5",
+    "type": "wan"
+   }
+  },
+  "L3": {
+   "class_type": "VAELoader",
+   "inputs": {
+    "vae_name": "$vae"
+   }
+  },
+  "40": {
+   "class_type": "EmptyHunyuanLatentVideo",
+   "inputs": {
+    "width": "$width",
+    "height": "$height",
+    "length": "$length",
+    "batch_size": 1
+   }
+  },
+  "10": {
+   "class_type": "CLIPTextEncode",
+   "inputs": {
+    "text": "$prompt",
+    "clip": [
+     "L2",
+     0
+    ]
+   }
+  },
+  "11": {
+   "class_type": "CLIPTextEncode",
+   "inputs": {
+    "text": "$negative",
+    "clip": [
+     "L2",
+     0
+    ]
+   }
+  },
+  "45": {
+   "class_type": "ModelSamplingSD3",
+   "inputs": {
+    "model": [
+     "L1",
+     0
+    ],
+    "shift": "$shift"
+   }
+  },
+  "13": {
+   "class_type": "KSampler",
+   "inputs": {
+    "model": [
+     "45",
+     0
+    ],
+    "seed": "$seed",
+    "steps": "$steps",
+    "cfg": "$cfg",
+    "sampler_name": "uni_pc",
+    "scheduler": "simple",
+    "positive": [
+     "10",
+     0
+    ],
+    "negative": [
+     "11",
+     0
+    ],
+    "latent_image": [
+     "40",
+     0
+    ],
+    "denoise": 1.0
+   }
+  },
+  "14": {
+   "class_type": "VAEDecode",
+   "inputs": {
+    "samples": [
+     "13",
+     0
+    ],
+    "vae": [
+     "L3",
+     0
+    ]
+   }
+  },
+  "15": {
+   "class_type": "SaveImage",
+   "inputs": {
+    "images": [
+     "14",
+     0
+    ],
+    "filename_prefix": "$prefix"
+   }
+  }
+ }
+}

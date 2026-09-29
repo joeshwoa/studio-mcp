@@ -1,0 +1,52 @@
+<style>
+.tr { position: absolute; inset: 0; overflow: hidden; }
+.tr .p { position: absolute; }
+</style>
+<script>
+(() => {
+  const shape = P.shape || 'diagonal';
+  const T = setDuration(P.duration || 1.2);
+  const M = T / 2;                       // fully covered at the midpoint → cut there
+  const box = el('div', 'tr');
+  const cols = [C.accent, C.primary, C.background];
+  if (shape === 'circle') {
+    const R = Math.hypot(W, H) / 2 + 10;
+    cols.forEach((c, i) => {
+      const p = el('div', 'p', box); Object.assign(p.style, {inset: 0, background: c});
+      const d = i * 0.08 * T;
+      A(p, [{clipPath: 'circle(0px at 50% 50%)'}, {clipPath: `circle(${R}px at 50% 50%)`}], d, M - d, 'inOut3', {fill: 'backwards'});
+      const dOut = (2 - i) * 0.08 * T;   // top layer leaves first
+      AO(p, [{clipPath: `circle(${R}px at 50% 50%)`}, {clipPath: `circle(0px at 50% 50%)`}], M + dOut, M - dOut, 'inOut3');
+    });
+  } else if (shape === 'bars') {
+    const n = PORTRAIT ? 5 : 7; const bw = W / n;
+    for (let i = 0; i < n; i++) {
+      const p = el('div', 'p', box); Object.assign(p.style, {left: i * bw - 1 + 'px', width: bw + 2 + 'px', top: 0, height: H + 'px', background: i % 2 ? C.primary : C.accent});
+      const d = i * (M * 0.35) / n;
+      A(p, [{transform: 'translateY(100%)'}, {transform: 'translateY(0)'}], d, M - d, 'inOut3', {fill: 'backwards'});
+      AO(p, [{transform: 'translateY(0)'}, {transform: 'translateY(-100%)'}], M + d, M - d, 'inOut3');
+    }
+  } else if (shape === 'split') {
+    const a = el('div', 'p', box), b = el('div', 'p', box);
+    Object.assign(a.style, {left: 0, right: 0, top: 0, height: H / 2 + 1 + 'px', background: C.primary});
+    Object.assign(b.style, {left: 0, right: 0, bottom: 0, height: H / 2 + 1 + 'px', background: C.primary});
+    const line = el('div', 'p', box); Object.assign(line.style, {left: 0, right: 0, top: H / 2 - 4 * U + 'px', height: 8 * U + 'px', background: C.accent});
+    A(a, [{transform: 'translateY(-100%)'}, {transform: 'none'}], 0, M, 'inOut', {fill: 'backwards'});
+    A(b, [{transform: 'translateY(100%)'}, {transform: 'none'}], 0, M, 'inOut', {fill: 'backwards'});
+    A(line, [{transform: 'scaleX(0)'}, {transform: 'scaleX(1)'}], M * 0.6, M * 0.4, 'out', {fill: 'backwards'});
+    AO(a, [{transform: 'none'}, {transform: 'translateY(-100%)'}], M, M, 'inOut');
+    AO(b, [{transform: 'none'}, {transform: 'translateY(100%)'}], M, M, 'inOut');
+    AO(line, [{transform: 'scaleX(1)'}, {transform: 'scaleX(0)'}], M, M * 0.4, 'in');
+  } else { // diagonal: three skewed panels sweep across in the reading direction
+    const dir = RTL ? -1 : 1;
+    const span = W + H * 0.8;
+    cols.forEach((c, i) => {
+      const p = el('div', 'p', box);
+      Object.assign(p.style, {top: -H * 0.1 + 'px', height: H * 1.2 + 'px', width: span + 'px', left: (W - span) / 2 + 'px', background: c, transform: 'skewX(-18deg)'});
+      const d = i * 0.07 * T;
+      A(p, [{transform: `translateX(${-dir * ((span + W) / 2 + H * 0.25)}px) skewX(-18deg)`}, {transform: 'translateX(0) skewX(-18deg)'}], d, M - d, 'inOut3', {fill: 'backwards'});
+      AO(p, [{transform: 'translateX(0) skewX(-18deg)'}, {transform: `translateX(${dir * ((span + W) / 2 + H * 0.25)}px) skewX(-18deg)`}], M + (2 - i) * 0.07 * T * 0, M - (2 - i) * 0.07 * T, 'inOut3');
+    });
+  }
+})();
+</script>

@@ -1,0 +1,98 @@
+<style>
+.tc { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; padding: 0 calc(var(--u) * 150); }
+.tc.center { align-items: center; text-align: center; }
+.tc.start { align-items: flex-start; text-align: start; }
+.tc .kicker { font-weight: 700; font-size: calc(var(--u) * 30); letter-spacing: .18em; text-transform: uppercase; color: var(--accent);
+  display: inline-flex; align-items: center; gap: calc(var(--u) * 18); margin-bottom: calc(var(--u) * 34); }
+:root[dir=rtl] .tc .kicker { letter-spacing: 0; font-size: calc(var(--u) * 36); }
+.tc .kicker i { display: block; width: calc(var(--u) * 64); height: calc(var(--u) * 5); background: var(--accent); border-radius: 9px; }
+.tc h1 { margin: 0; font-weight: 800; font-size: calc(var(--u) * 132); line-height: 1.02; letter-spacing: -0.025em; color: var(--text); max-width: 100%; }
+:root[dir=rtl] .tc h1 { letter-spacing: 0; line-height: 1.25; }
+.tc h1 .emph .winner { color: var(--primary); }
+.tc .bar { height: calc(var(--u) * 12); width: calc(var(--u) * 220); background: linear-gradient(90deg, var(--primary), var(--accent));
+  border-radius: 99px; margin: calc(var(--u) * 42) 0 calc(var(--u) * 34); transform-origin: left center; }
+:root[dir=rtl] .tc .bar { transform-origin: right center; background: linear-gradient(-90deg, var(--primary), var(--accent)); }
+.tc.center .bar { transform-origin: center; }
+.tc .sub { font-size: calc(var(--u) * 46); font-weight: 400; color: var(--muted); max-width: calc(var(--u) * 1400); line-height: 1.35; }
+/* minimal */
+.tc.minimal h1 { font-weight: 300; letter-spacing: .02em; font-size: calc(var(--u) * 118); }
+:root[dir=rtl] .tc.minimal h1 { font-weight: 600; letter-spacing: 0; }
+.tc.minimal .line { display: flex; gap: calc(var(--u) * 28); align-items: center; margin-top: calc(var(--u) * 40); }
+.tc.minimal .line i { display: block; height: 2px; width: calc(var(--u) * 180); background: var(--muted); }
+.tc.minimal .line span { font-size: calc(var(--u) * 34); letter-spacing: .32em; text-transform: uppercase; color: var(--muted); }
+:root[dir=rtl] .tc.minimal .line span { letter-spacing: 0; font-size: calc(var(--u) * 40); }
+/* split */
+.panel { position: absolute; inset: 0; }
+.tc.split h1 { color: var(--text); }
+</style>
+<script>
+(() => {
+  const style = P.style || 'bold';
+  const T = setDuration(P.duration || 5);
+  const OUT = T - 0.7;
+  const alignDefault = style === 'minimal' ? 'center' : (PORTRAIT ? 'center' : 'start');
+  const align = (P.align && P.align !== 'auto') ? P.align : alignDefault;
+  if (style === 'split') {
+    if (!P.transparent) { const bd = backdrop({o1: .18, o2: .1}); }
+    const p1 = el('div', 'panel'); p1.style.background = C.primary;
+    const p2 = el('div', 'panel'); p2.style.background = C.background;
+    const from = RTL ? 'inset(0 0 0 100%)' : 'inset(0 100% 0 0)', full = 'inset(0 0 0 0)', to = RTL ? 'inset(0 100% 0 0)' : 'inset(0 0 0 100%)';
+    A(p1, [{clipPath: from}, {clipPath: full}], 0.0, 0.7, 'inOut');
+    A(p2, [{clipPath: from}, {clipPath: full}], 0.28, 0.75, 'inOut');
+    AO(p2, [{clipPath: full}, {clipPath: to}], OUT - 0.1, 0.7, 'inOut');
+    AO(p1, [{clipPath: full}, {clipPath: to}], OUT + 0.05, 0.6, 'inOut');
+    backdropInside(p2);
+  } else {
+    backdrop({});
+  }
+  function backdropInside(p) {
+    window.__grain = true;
+    const accent = el('div', '', p);
+    Object.assign(accent.style, {position: 'absolute', width: 18 * U + 'px', top: 0, bottom: 0, background: C.primary,
+      [RTL ? 'right' : 'left']: 0});
+  }
+  const box = el('div', 'tc ' + align + ' ' + style);
+  const base = style === 'split' ? 0.75 : 0.25;
+  if (P.kicker) {
+    const k = el('div', 'kicker head', box); const dash = el('i', '', k); const kt = el('span', '', k, P.kicker);
+    A(dash, [{transform: 'scaleX(0)'}, {transform: 'scaleX(1)'}], base, 0.6);
+    dash.style.transformOrigin = RTL ? 'right' : 'left';
+    A(kt, [{opacity: 0, transform: `translateX(${(RTL ? 1 : -1) * 30 * U}px)`}, {opacity: 1, transform: 'none'}], base + 0.15, 0.7);
+    AO(k, [{opacity: 1}, {opacity: 0}], OUT, 0.35, 'in');
+  }
+  const h1 = el('h1', 'head', box);
+  const ws = style === 'minimal' ? chars(h1, P.title || 'Your Title') : words(h1, P.title || 'Your Title');
+  const maxW = W - 300 * U;
+  fit(h1, maxW, H * 0.55, 30);
+  const t0 = base + (P.kicker ? 0.25 : 0);
+  ws.forEach((w, i) => {
+    if (style === 'minimal') {
+      A(w.inner, [{opacity: 0, filter: `blur(${14 * U}px)`, transform: 'translateY(0.25em)'}, {opacity: 1, filter: 'blur(0)', transform: 'none'}], t0 + i * 0.035, 0.9);
+    } else {
+      A(w.inner, [{transform: 'translateY(140%) rotate(4deg)'}, {transform: 'translateY(0) rotate(0)'}], t0 + i * 0.075, 0.95);
+    }
+    AO(w.inner, [{transform: 'none', opacity: 1}, {transform: 'translateY(-140%)', opacity: 1}], OUT + i * 0.03, 0.5, 'in');
+  });
+  const afterTitle = t0 + ws.length * (style === 'minimal' ? 0.035 : 0.075) + 0.2;
+  if (style === 'minimal') {
+    if (P.subtitle) {
+      const line = el('div', 'line', box); const l1 = el('i', '', line); el('span', '', line, P.subtitle); const l2 = el('i', '', line);
+      l1.style.transformOrigin = 'right'; l2.style.transformOrigin = 'left';
+      A(l1, [{transform: 'scaleX(0)'}, {transform: 'scaleX(1)'}], afterTitle, 1.0);
+      A(l2, [{transform: 'scaleX(0)'}, {transform: 'scaleX(1)'}], afterTitle, 1.0);
+      A(line.children[1], [{opacity: 0, letterSpacing: RTL ? '0' : '.6em'}, {opacity: 1, letterSpacing: RTL ? '0' : '.32em'}], afterTitle + 0.1, 1.1);
+      AO(line, [{opacity: 1}, {opacity: 0}], OUT, 0.4, 'in');
+    }
+  } else {
+    const bar = el('div', 'bar', box);
+    A(bar, [{transform: 'scaleX(0)'}, {transform: 'scaleX(1)'}], afterTitle - 0.1, 0.9);
+    AO(bar, [{transform: 'scaleX(1)'}, {transform: 'scaleX(0)'}], OUT, 0.45, 'in');
+    if (P.subtitle) {
+      const sub = el('div', 'sub', box, P.subtitle);
+      fit(sub, maxW, H * 0.2, 16);
+      A(sub, [{opacity: 0, transform: `translateY(${24 * U}px)`}, {opacity: 1, transform: 'none'}], afterTitle + 0.05, 0.9);
+      AO(sub, [{opacity: 1}, {opacity: 0}], OUT, 0.35, 'in');
+    }
+  }
+})();
+</script>

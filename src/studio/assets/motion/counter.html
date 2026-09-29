@@ -1,0 +1,41 @@
+<style>
+.ct { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: calc(var(--u) * 90); padding: 0 6%; }
+.ct.col { flex-direction: column; gap: calc(var(--u) * 70); }
+.ct .item { display: flex; flex-direction: column; align-items: center; gap: calc(var(--u) * 18); min-width: 0; }
+.ct .val { font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; line-height: 1; letter-spacing: -0.03em; white-space: nowrap; }
+.ct .val .fx { color: var(--primary); }
+.ct .bar { width: 100%; height: calc(var(--u) * 10); border-radius: 9px; background: rgba(255,255,255,.12); overflow: hidden; }
+.ct .bar i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, var(--primary), var(--accent)); transform-origin: left; border-radius: 9px; }
+:root[dir=rtl] .ct .bar i { transform-origin: right; }
+.ct .lbl { font-size: calc(var(--u) * 40); color: var(--muted); font-weight: 500; text-align: center; letter-spacing: .06em; text-transform: uppercase; }
+:root[dir=rtl] .ct .lbl { letter-spacing: 0; text-transform: none; font-size: calc(var(--u) * 46); }
+</style>
+<script>
+(() => {
+  const items = (P.items || []).slice(0, 4);
+  const T = setDuration(P.duration || 4);
+  backdrop({dur: T, o1: .2, o2: .12});
+  const n = items.length;
+  const box = el('div', 'ct' + (PORTRAIT && n > 1 ? ' col' : ''));
+  const dec = P.decimals || 0;
+  const perW = PORTRAIT || n === 1 ? W * 0.84 : (W * 0.88 - (n - 1) * 90 * U) / n;
+  const base = n === 1 ? 300 : n === 2 ? 190 : n === 3 ? 150 : 120;
+  const RUN = Math.min(2.4, T * 0.55);
+  const rows = items.map((it, i) => {
+    const item = el('div', 'item', box);
+    const v = el('div', 'val head', item);
+    const d = it.decimals != null ? it.decimals : (Number.isInteger(+it.value) ? 0 : Math.max(1, dec));
+    const pre = el('span', 'fx', v, it.prefix || ''), num = el('span', '', v, fmtNum(it.value, d)), suf = el('span', 'fx', v, it.suffix || '');
+    v.style.fontSize = base * U * (PORTRAIT && n > 1 ? 0.85 : 1) + 'px';
+    fit(v, perW, 1e9, 20); v.style.width = Math.ceil(v.getBoundingClientRect().width) + 'px'; v.style.textAlign = 'center';
+    const bar = el('div', 'bar', item); const bi = el('i', '', bar);
+    if (it.label) el('div', 'lbl', item, it.label);
+    const at = 0.25 + i * 0.18;
+    A(item, [{opacity: 0, transform: `translateY(${50 * U}px)`}, {opacity: 1, transform: 'none'}], at, 0.7, 'out');
+    A(bi, [{transform: 'scaleX(0)'}, {transform: 'scaleX(1)'}], at + 0.1, RUN, 'out');
+    return {it, num, at, d};
+  });
+  tick((t) => rows.forEach(r => { const p = ease.outExpo(prog(t, r.at + 0.1, RUN)); r.num.textContent = fmtNum(r.it.value * p, r.d); }));
+  AO(box, [{opacity: 1}, {opacity: 0}], T - 0.45, 0.45, 'in');
+})();
+</script>

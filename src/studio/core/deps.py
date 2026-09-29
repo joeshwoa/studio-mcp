@@ -61,12 +61,21 @@ DEPS: dict[str, Dep] = {d.key: d for d in [
     Dep("rembg", "py", "AI background removal (local)", pip="rembg[cpu]", module="rembg", size="180 MB model"),
     Dep("opencv", "py", "face/subject detection for smart crop & reframe", pip="opencv-python-headless", module="cv2"),
     Dep("vtracer", "py", "raster → vector tracing", pip="vtracer", module="vtracer"),
+    Dep("poppler", "bin", "PDF → PNG previews (pdftoppm), PDF font checks", brew="poppler", apt="poppler-utils",
+        bins=["pdftoppm"], size="20 MB"),
+    Dep("harfbuzz", "py", "text shaping for logo wordmarks (Arabic joining, kerning)", pip="uharfbuzz", module="uharfbuzz"),
+    Dep("fonttools", "py", "font outlines → SVG paths for logos", pip="fonttools", module="fontTools"),
+    Dep("segno", "py", "QR codes (SVG) for posters, flyers, business cards", pip="segno", module="segno"),
+    Dep("ghostscript", "bin", "optional CMYK conversion of print PDFs", brew="ghostscript", apt="ghostscript", bins=["gs"], size="50 MB"),
     Dep("edge_tts", "py", "neural TTS incl. Egyptian Arabic (free Microsoft Edge voices, online)", pip="edge-tts", module="edge_tts"),
     Dep("piper", "py", "offline neural TTS", pip="piper-tts", module="piper", size="60 MB per voice"),
     Dep("faster_whisper", "py", "speech → text (captions, transcripts)", pip="faster-whisper", module="faster_whisper", size="150 MB–3 GB model"),
     Dep("noisereduce", "py", "voice clean-up", pip="noisereduce", module="noisereduce"),
     Dep("pedalboard", "py", "studio audio effects (EQ, comp, reverb, limiter)", pip="pedalboard", module="pedalboard"),
     Dep("demucs", "py", "stem separation (vocals/drums/bass/other)", pip="demucs", module="demucs", size="2 GB with torch"),
+    Dep("mlx_whisper", "py", "fast Whisper transcription on Apple Silicon (MLX)", pip="mlx-whisper", module="mlx_whisper", size="1.6–3 GB model"),
+    Dep("soundfile", "py", "WAV/FLAC read/write (libsndfile)", pip="soundfile", module="soundfile"),
+    Dep("mido", "py", "MIDI files (editable master of generated music)", pip="mido", module="mido"),
     Dep("httpx", "py", "HTTP client for AI backends", pip="httpx", module="httpx"),
     Dep("mflux", "py", "FLUX image generation on Apple Silicon (MLX, local)", pip="mflux", module="mflux", size="6–12 GB model"),
     Dep("comfyui", "app", "local AI image/video generation server (FLUX, SDXL, LTX-Video, Wan)",
@@ -100,7 +109,7 @@ def install_hint(key: str) -> str:
         extra = " && python -m playwright install chromium" if key == "chromium" else ""
         return f"pip install '{d.pip}'{extra}   (or: studio install {key})"
     if key == "comfyui":
-        return "studio install comfyui   (clones ComfyUI into STUDIO_HOME and starts it), or set COMFYUI_URL"
+        return "comfyui_setup (dry run lists sizes/licences) then comfyui_start, or set COMFYUI_URL to an existing server"
     if IS_MAC:
         return f"brew install {d.brew}" if d.brew else f"see the {d.key} website"
     return f"sudo apt install {d.apt}" if d.apt else f"see the {d.key} website"

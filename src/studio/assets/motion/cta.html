@@ -1,0 +1,100 @@
+<style>
+.cta { position: absolute; display: flex; align-items: center; gap: calc(var(--u) * 22); }
+.cta .btn { position: relative; display: inline-flex; align-items: center; gap: calc(var(--u) * 16); height: calc(var(--u) * 104);
+  padding: 0 calc(var(--u) * 46); border-radius: calc(var(--u) * 52); background: var(--primary); color: var(--on_primary);
+  font-weight: 800; font-size: calc(var(--u) * 42); letter-spacing: .04em; text-transform: uppercase; white-space: nowrap;
+  box-shadow: 0 calc(var(--u) * 14) calc(var(--u) * 40) rgba(0,0,0,.35); overflow: hidden; }
+:root[dir=rtl] .cta .btn { letter-spacing: 0; text-transform: none; font-size: calc(var(--u) * 46); }
+.cta .btn .lbl2 { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: calc(var(--u) * 14);
+  background: #2b2d3a; color: rgba(255,255,255,.9); }
+.cta .round { width: calc(var(--u) * 104); height: calc(var(--u) * 104); border-radius: 50%; display: grid; place-items: center;
+  background: #fff; color: #16171f; font-size: calc(var(--u) * 50); box-shadow: 0 calc(var(--u) * 14) calc(var(--u) * 40) rgba(0,0,0,.35); }
+.cta .cursor { position: absolute; width: calc(var(--u) * 64); height: calc(var(--u) * 64); z-index: 5; filter: drop-shadow(0 4px 8px rgba(0,0,0,.4)); }
+.cta .ripple { position: absolute; width: calc(var(--u) * 60); height: calc(var(--u) * 60); border-radius: 50%; background: rgba(255,255,255,.55); }
+/* follow card */
+.card { display: flex; align-items: center; gap: calc(var(--u) * 24); padding: calc(var(--u) * 20) calc(var(--u) * 20) calc(var(--u) * 20) calc(var(--u) * 20);
+  background: rgba(255,255,255,.96); border-radius: calc(var(--u) * 60); color: #15161d; box-shadow: 0 calc(var(--u) * 18) calc(var(--u) * 50) rgba(0,0,0,.35); }
+.card .av { width: calc(var(--u) * 100); height: calc(var(--u) * 100); border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--accent));
+  display: grid; place-items: center; color: #fff; font-size: calc(var(--u) * 50); overflow: hidden; flex: none; }
+.card .av img { width: 70%; height: 70%; object-fit: contain; }
+.card .hd { font-weight: 800; font-size: calc(var(--u) * 44); white-space: nowrap; padding-inline-end: calc(var(--u) * 10); }
+.card .fb { position: relative; width: calc(var(--u) * 100); height: calc(var(--u) * 100); border-radius: 50%; background: var(--primary); color: var(--on_primary);
+  display: grid; place-items: center; font-size: calc(var(--u) * 50); flex: none; }
+.card .fb .ico { position: absolute; }
+/* link pill */
+.pill { display: inline-flex; align-items: center; gap: calc(var(--u) * 20); padding: calc(var(--u) * 26) calc(var(--u) * 50); border-radius: 99px;
+  background: #fff; color: #15161d; font-weight: 800; font-size: calc(var(--u) * 48); box-shadow: 0 calc(var(--u) * 18) calc(var(--u) * 50) rgba(0,0,0,.35); white-space: nowrap; }
+.pill .ic { width: calc(var(--u) * 64); height: calc(var(--u) * 64); border-radius: 50%; background: var(--primary); color: var(--on_primary); display: grid; place-items: center; font-size: calc(var(--u) * 36); }
+.arrow { position: absolute; font-size: calc(var(--u) * 80); color: #fff; filter: drop-shadow(0 4px 10px rgba(0,0,0,.5)); }
+</style>
+<script>
+(() => {
+  const kind = P.kind || 'subscribe';
+  const T = setDuration(P.duration || 4);
+  const OUT = T - 0.5;
+  const pos = P.position && P.position !== 'auto' ? P.position : (kind === 'link' ? 'center' : 'bottom');
+  const box = el('div', 'cta');
+  if (PORTRAIT) box.style.setProperty('--u', U * 1.35 + 'px');
+  const place = () => {
+    const r = box.getBoundingClientRect();
+    const x = pos === 'left' ? W * 0.07 : pos === 'right' ? W * 0.93 - r.width : (W - r.width) / 2;
+    const y = pos === 'center' ? (H - r.height) / 2 : pos === 'top' ? H * 0.1 : H * (PORTRAIT ? 0.7 : 0.78) - r.height / 2;
+    Object.assign(box.style, {left: x + 'px', top: y + 'px'});
+  };
+  if (kind === 'subscribe') {
+    const btn = el('div', 'btn head', box);
+    const l1 = el('span', '', btn, P.text || (RTL ? 'اشترك' : 'Subscribe'));
+    const l2 = el('span', 'lbl2', btn); icon('check', '', l2); el('span', '', l2, P.done_text || (RTL ? 'تم الاشتراك' : 'Subscribed'));
+    const bell = el('div', 'round', box); icon('bell', '', bell);
+    const like = el('div', 'round', box); icon('thumb', '', like);
+    place();
+    const br = btn.getBoundingClientRect(), bx = br.left - box.getBoundingClientRect().left;
+    A(box, [{transform: `translateY(${80 * U}px)`, opacity: 0}, {transform: 'none', opacity: 1}], 0.1, 0.7, 'out');
+    A(btn, [{transform: 'scale(.6)'}, {transform: 'scale(1)'}], 0.1, 0.8, 'back');
+    A(bell, [{transform: 'scale(0)'}, {transform: 'scale(1)'}], 0.3, 0.6, 'back');
+    A(like, [{transform: 'scale(0)'}, {transform: 'scale(1)'}], 0.4, 0.6, 'back');
+    const cur = el('div', 'cursor', box); cur.innerHTML = ICONS.cursor;
+    const cx = bx + br.width * 0.55, cy = br.height * 0.55;
+    A(cur, [{transform: `translate(${cx + 260 * U}px, ${cy + 200 * U}px)`, opacity: 0}, {transform: `translate(${cx}px, ${cy}px)`, opacity: 1}], 0.6, 0.7, 'inOut3');
+    A(cur, [{transform: `translate(${cx}px, ${cy}px) scale(1)`}, {transform: `translate(${cx}px, ${cy}px) scale(.82)`}, {transform: `translate(${cx}px, ${cy}px) scale(1)`}], 1.3, 0.25, 'linear', {fill: 'forwards'});
+    const rp = el('div', 'ripple', box); Object.assign(rp.style, {left: cx - 30 * U + 'px', top: cy - 30 * U + 'px'});
+    A(rp, [{transform: 'scale(0)', opacity: .9}, {transform: 'scale(5)', opacity: 0}], 1.35, 0.6, 'out');
+    A(l2, [{clipPath: 'circle(0% at 55% 55%)'}, {clipPath: 'circle(150% at 55% 55%)'}], 1.38, 0.5, 'out');
+    // cursor goes to the bell
+    const bellX = bell.getBoundingClientRect().left - box.getBoundingClientRect().left + 52 * U;
+    A(cur, [{transform: `translate(${cx}px, ${cy}px)`}, {transform: `translate(${bellX}px, ${cy}px)`}], 1.8, 0.5, 'inOut3', {fill: 'forwards'});
+    A(bell, [{transform: 'rotate(0)'}, {transform: 'rotate(18deg)'}, {transform: 'rotate(-16deg)'}, {transform: 'rotate(10deg)'}, {transform: 'rotate(-6deg)'}, {transform: 'rotate(0)'}], 2.35, 0.7, 'linear', {fill: 'forwards'});
+    A(bell, [{background: '#fff', color: '#16171f'}, {background: C.accent, color: '#16171f'}], 2.35, 0.2, 'linear', {fill: 'forwards'});
+    A(like, [{transform: 'scale(1)'}, {transform: 'scale(1.25)', background: C.primary, color: C.on_primary}, {transform: 'scale(1)', background: C.primary, color: C.on_primary}], 2.6, 0.5, 'out', {fill: 'forwards'});
+    AO(cur, [{opacity: 1}, {opacity: 0}], 2.9, 0.3, 'out');
+  } else if (kind === 'follow') {
+    const card = el('div', 'card', box);
+    const av = el('div', 'av', card);
+    if (P.avatar_uri) { const im = el('img', '', av); im.src = P.avatar_uri; } else icon('user', '', av);
+    el('div', 'hd head', card, P.handle || '@yourhandle');
+    const fb = el('div', 'fb', card); const plus = icon('plus', '', fb); const chk = icon('check', '', fb);
+    if (P.text) { const t = el('div', 'hd head', box, P.text); t.style.color = '#fff'; t.style.textShadow = '0 4px 16px rgba(0,0,0,.5)'; }
+    place();
+    A(card, [{transform: 'scale(.4)', opacity: 0}, {transform: 'scale(1)', opacity: 1}], 0.1, 0.8, 'back');
+    A(av, [{transform: 'scale(0)'}, {transform: 'scale(1)'}], 0.3, 0.6, 'back');
+    A(plus, [{transform: 'rotate(0) scale(1)', opacity: 1}, {transform: 'rotate(90deg) scale(0)', opacity: 0}], 1.4, 0.35, 'in', {fill: 'forwards'});
+    A(chk, [{transform: 'scale(0)', opacity: 0}, {transform: 'scale(1)', opacity: 1}], 1.6, 0.5, 'back');
+    A(fb, [{background: C.primary}, {background: '#22c55e'}], 1.45, 0.3, 'linear', {fill: 'forwards'});
+    A(fb, [{transform: 'scale(1)'}, {transform: 'scale(.85)'}, {transform: 'scale(1.1)'}, {transform: 'scale(1)'}], 1.3, 0.6, 'out', {fill: 'forwards'});
+  } else { // link
+    const pill = el('div', 'pill head', box);
+    const ic = el('span', 'ic', pill); icon('link', '', ic);
+    el('span', '', pill, P.text || (RTL ? 'اللينك في البايو' : 'Link in bio'));
+    place();
+    const ar = el('div', 'arrow', box); icon('down', '', ar);
+    const pr = pill.getBoundingClientRect();
+    Object.assign(ar.style, {left: pr.width / 2 - 40 * U + 'px', top: pr.height + 20 * U + 'px'});
+    A(pill, [{transform: 'translateY(40px) scale(.6)', opacity: 0}, {transform: 'none', opacity: 1}], 0.1, 0.8, 'back');
+    A(ar, [{opacity: 0}, {opacity: 1}], 0.6, 0.3, 'out');
+    for (let i = 0; i < Math.floor((OUT - 0.6) / 0.6); i++)
+      A(ar, [{transform: 'translateY(0)'}, {transform: `translateY(${28 * U}px)`}, {transform: 'translateY(0)'}], 0.6 + i * 0.6, 0.6, 'inOut3', {fill: 'forwards', composite: 'add'});
+    A(pill, [{transform: 'scale(1)'}, {transform: 'scale(1.06)'}, {transform: 'scale(1)'}], 1.2, 0.6, 'inOut3', {fill: 'none', composite: 'add'});
+  }
+  AO(box, [{opacity: 1, transform: 'none'}, {opacity: 0, transform: `translateY(${40 * U}px)`}], OUT, 0.45, 'in');
+})();
+</script>

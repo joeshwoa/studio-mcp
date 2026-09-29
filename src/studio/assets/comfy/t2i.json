@@ -1,0 +1,87 @@
+{
+ "_meta": {
+  "title": "text \u2192 image",
+  "params": [
+   "prompt",
+   "negative",
+   "seed",
+   "steps",
+   "cfg",
+   "sampler",
+   "scheduler",
+   "width",
+   "height",
+   "batch",
+   "latent_class",
+   "prefix"
+  ]
+ },
+ "nodes": {
+  "10": {
+   "class_type": "CLIPTextEncode",
+   "inputs": {
+    "text": "$prompt",
+    "clip": "@CLIP"
+   }
+  },
+  "11": {
+   "class_type": "CLIPTextEncode",
+   "inputs": {
+    "text": "$negative",
+    "clip": "@CLIP"
+   }
+  },
+  "12": {
+   "class_type": "$latent_class",
+   "inputs": {
+    "width": "$width",
+    "height": "$height",
+    "batch_size": "$batch"
+   }
+  },
+  "13": {
+   "class_type": "KSampler",
+   "inputs": {
+    "model": "@MODEL",
+    "seed": "$seed",
+    "steps": "$steps",
+    "cfg": "$cfg",
+    "sampler_name": "$sampler",
+    "scheduler": "$scheduler",
+    "positive": [
+     "10",
+     0
+    ],
+    "negative": [
+     "11",
+     0
+    ],
+    "latent_image": [
+     "12",
+     0
+    ],
+    "denoise": 1.0
+   }
+  },
+  "14": {
+   "class_type": "VAEDecode",
+   "inputs": {
+    "samples": [
+     "13",
+     0
+    ],
+    "vae": "@VAE"
+   }
+  },
+  "15": {
+   "class_type": "SaveImage",
+   "inputs": {
+    "images": [
+     "14",
+     0
+    ],
+    "filename_prefix": "$prefix"
+   }
+  }
+ }
+}

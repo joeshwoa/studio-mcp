@@ -1,0 +1,102 @@
+<style>
+.lt { position: absolute; display: flex; flex-direction: column; gap: calc(var(--u) * 10); max-width: 70%; }
+.lt .name, .lt .role { position: relative; white-space: nowrap; }
+.lt .txt { display: inline-block; position: relative; z-index: 2; }
+/* modern */
+.lt.modern { flex-direction: row; align-items: stretch; gap: 0; }
+.lt.modern .bar { width: calc(var(--u) * 12); background: linear-gradient(180deg, var(--primary), var(--accent)); border-radius: calc(var(--u) * 3); transform-origin: top; flex: none; }
+.lt.modern .col { display: flex; flex-direction: column; align-items: flex-start; }
+.lt.modern .name { background: var(--panel); color: var(--text); font-weight: 800; font-size: calc(var(--u) * 58);
+  padding: calc(var(--u) * 14) calc(var(--u) * 34) calc(var(--u) * 16); line-height: 1.1; letter-spacing: -0.01em; }
+.lt.modern .role { background: var(--primary); color: var(--on_primary, #fff); font-weight: 600; font-size: calc(var(--u) * 32);
+  padding: calc(var(--u) * 10) calc(var(--u) * 34) calc(var(--u) * 12); line-height: 1.15; letter-spacing: .02em; }
+:root[dir=rtl] .lt.modern .col { align-items: flex-start; }
+:root[dir=rtl] .lt .name, :root[dir=rtl] .lt .role { letter-spacing: 0; }
+/* glass */
+.lt.glass { flex-direction: row; align-items: center; gap: calc(var(--u) * 26); padding: calc(var(--u) * 22) calc(var(--u) * 40) calc(var(--u) * 22) calc(var(--u) * 22);
+  background: linear-gradient(135deg, rgba(20,22,36,.86), rgba(20,22,36,.66)); border: 1px solid rgba(255,255,255,.16);
+  border-radius: calc(var(--u) * 30); box-shadow: 0 calc(var(--u) * 18) calc(var(--u) * 50) rgba(0,0,0,.35); }
+:root[dir=rtl] .lt.glass { padding: calc(var(--u) * 22) calc(var(--u) * 22) calc(var(--u) * 22) calc(var(--u) * 40); }
+.lt.glass .badge { width: calc(var(--u) * 96); height: calc(var(--u) * 96); border-radius: 50%; flex: none; display: grid; place-items: center;
+  background: linear-gradient(135deg, var(--primary), var(--accent)); color: #fff; font-weight: 800; font-size: calc(var(--u) * 38); letter-spacing: .02em; }
+.lt.glass .badge img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+.lt.glass .col { display: flex; flex-direction: column; gap: calc(var(--u) * 4); }
+.lt.glass .name { font-weight: 700; font-size: calc(var(--u) * 50); color: #fff; line-height: 1.12; }
+.lt.glass .role { font-weight: 500; font-size: calc(var(--u) * 30); color: rgba(255,255,255,.74); line-height: 1.2; }
+.lt.glass .role::before { content: ''; display: inline-block; width: calc(var(--u) * 12); height: calc(var(--u) * 12); border-radius: 50%;
+  background: var(--accent); margin-inline-end: calc(var(--u) * 12); vertical-align: middle; transform: translateY(-10%); }
+/* line */
+.lt.line .name { font-weight: 800; font-size: calc(var(--u) * 64); color: #fff; line-height: 1.1; text-shadow: 0 calc(var(--u) * 3) calc(var(--u) * 18) rgba(0,0,0,.55); }
+.lt.line .rule { height: calc(var(--u) * 6); width: 100%; background: linear-gradient(90deg, var(--primary), var(--accent)); border-radius: 9px; transform-origin: left; }
+:root[dir=rtl] .lt.line .rule { transform-origin: right; background: linear-gradient(-90deg, var(--primary), var(--accent)); }
+.lt.line .role { font-weight: 500; font-size: calc(var(--u) * 32); color: rgba(255,255,255,.9); letter-spacing: .14em; text-transform: uppercase;
+  text-shadow: 0 calc(var(--u) * 2) calc(var(--u) * 12) rgba(0,0,0,.6); }
+:root[dir=rtl] .lt.line .role { letter-spacing: 0; text-transform: none; font-size: calc(var(--u) * 36); }
+.lt.center { align-items: center; text-align: center; }
+</style>
+<script>
+(() => {
+  const style = P.style || 'modern';
+  const T = setDuration(P.duration || 6);
+  const OUT = Math.max(1.6, T - 0.75);
+  let pos = P.position && P.position !== 'auto' ? P.position : (RTL ? 'right' : 'left');
+  const box = el('div', 'lt ' + style + (pos === 'center' ? ' center' : ''));
+  // safe area: 7% sides, bottom 12% (landscape) / 22% (portrait, above platform UI)
+  const side = W * 0.07, bottom = H * (PORTRAIT ? 0.22 : 0.12);
+  box.style.bottom = bottom + 'px';
+  if (pos === 'center') { box.style.left = '50%'; box.style.transform = 'translateX(-50%)'; }
+  else box.style[pos] = side + 'px';
+  const fromStart = (pos === 'right') !== RTL ? 1 : -1;  // direction the panels open from
+  const hide = pos === 'right' ? 'inset(0 0 0 100%)' : 'inset(0 100% 0 0)';
+  const show = 'inset(0 0 0 0)';
+  const hideR = pos === 'right' ? 'inset(0 0 0 100%)' : 'inset(0 100% 0 0)';
+
+  if (style === 'modern') {
+    if (pos === 'right') box.style.flexDirection = 'row-reverse';
+    const bar = el('div', 'bar', box); const col = el('div', 'col', box);
+    if (pos === 'right') col.style.alignItems = 'flex-end';
+    const nm = el('div', 'name head', col); const nt = el('span', 'txt', nm, P.name || 'Name Surname');
+    let rl = null, rt = null;
+    if (P.role) { rl = el('div', 'role', col); rt = el('span', 'txt', rl, P.role); }
+    fit(nm, W * 0.62, 1e9, 20);
+    A(bar, [{transform: 'scaleY(0)'}, {transform: 'scaleY(1)'}], 0.05, 0.5, 'out');
+    A(nm, [{clipPath: hide}, {clipPath: show}], 0.25, 0.7, 'inOut3');
+    A(nt, [{transform: 'translateY(100%)', opacity: 0}, {transform: 'none', opacity: 1}], 0.45, 0.7, 'out');
+    if (rl) {
+      A(rl, [{clipPath: hide}, {clipPath: show}], 0.45, 0.65, 'inOut3');
+      A(rt, [{transform: `translateX(${fromStart * -24 * U}px)`, opacity: 0}, {transform: 'none', opacity: 1}], 0.65, 0.6, 'out');
+      AO(rl, [{clipPath: show}, {clipPath: hideR}], OUT, 0.45, 'inOut3');
+    }
+    AO(nm, [{clipPath: show}, {clipPath: hideR}], OUT + 0.1, 0.45, 'inOut3');
+    AO(bar, [{transform: 'scaleY(1)'}, {transform: 'scaleY(0)'}], OUT + 0.35, 0.35, 'in');
+  } else if (style === 'glass') {
+    if (pos === 'right') box.style.flexDirection = 'row-reverse';
+    const badge = el('div', 'badge head', box);
+    if (P.photo_uri) { const im = el('img', '', badge); im.src = P.photo_uri; }
+    else badge.textContent = (P.initials || String(P.name || 'N S').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('')).toUpperCase();
+    const col = el('div', 'col', box);
+    if (pos === 'right') col.style.alignItems = 'flex-end';
+    const nm = el('div', 'name head', col, P.name || 'Name Surname');
+    let rl = P.role ? el('div', 'role', col, P.role) : null;
+    fit(nm, W * 0.55, 1e9, 20);
+    A(box, [{opacity: 0, transform: `translateY(${40 * U}px) scale(.94)`}, {opacity: 1, transform: 'none'}], 0.05, 0.8, 'out');
+    A(badge, [{transform: 'scale(0) rotate(-40deg)'}, {transform: 'scale(1) rotate(0)'}], 0.2, 0.8, 'back');
+    A(nm, [{opacity: 0, transform: `translateX(${fromStart * -30 * U}px)`}, {opacity: 1, transform: 'none'}], 0.35, 0.7, 'out');
+    if (rl) A(rl, [{opacity: 0, transform: `translateX(${fromStart * -30 * U}px)`}, {opacity: 1, transform: 'none'}], 0.5, 0.7, 'out');
+    AO(box, [{opacity: 1, transform: 'none'}, {opacity: 0, transform: `translateY(${30 * U}px) scale(.97)`}], OUT + 0.1, 0.5, 'in');
+  } else { // line
+    const nm = el('div', 'name head', box); const ws = words(nm, P.name || 'Name Surname');
+    const rule = el('div', 'rule', box);
+    if (pos === 'right') { box.style.alignItems = 'flex-end'; rule.style.transformOrigin = 'right'; }
+    let rl = P.role ? el('div', 'role', box, P.role) : null;
+    fit(nm, W * 0.6, 1e9, 20);
+    ws.forEach((w, i) => A(w.inner, [{transform: 'translateY(105%)'}, {transform: 'none'}], 0.1 + i * 0.07, 0.8, 'out'));
+    A(rule, [{transform: 'scaleX(0)'}, {transform: 'scaleX(1)'}], 0.3, 0.9, 'out');
+    if (rl) A(rl, [{opacity: 0, transform: `translateY(${-14 * U}px)`}, {opacity: 1, transform: 'none'}], 0.55, 0.7, 'out');
+    ws.forEach((w, i) => AO(w.inner, [{transform: 'none'}, {transform: 'translateY(105%)'}], OUT + i * 0.04, 0.45, 'in'));
+    AO(rule, [{transform: 'scaleX(1)'}, {transform: 'scaleX(0)'}], OUT, 0.5, 'inOut3');
+    if (rl) AO(rl, [{opacity: 1}, {opacity: 0}], OUT, 0.35, 'in');
+  }
+  logoBug('tr', 70);
+})();
+</script>

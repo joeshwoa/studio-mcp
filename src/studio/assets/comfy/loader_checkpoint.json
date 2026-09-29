@@ -1,0 +1,27 @@
+{
+ "_meta": {
+  "title": "Single-file checkpoint (SDXL / SDXL-Lightning / SDXL-Turbo)"
+ },
+ "exports": {
+  "MODEL": [
+   "L1",
+   0
+  ],
+  "CLIP": [
+   "L1",
+   1
+  ],
+  "VAE": [
+   "L1",
+   2
+  ]
+ },
+ "nodes": {
+  "L1": {
+   "class_type": "CheckpointLoaderSimple",
+   "inputs": {
+    "ckpt_name": "$ckpt"
+   }
+  }
+ }
+}

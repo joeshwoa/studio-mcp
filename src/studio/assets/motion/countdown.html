@@ -1,0 +1,64 @@
+<style>
+.cd { position: absolute; inset: 0; display: grid; place-items: center; }
+.cd svg { position: absolute; overflow: visible; }
+.cd .num { position: absolute; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; line-height: 1; text-align: center; }
+.cd .end { position: absolute; font-weight: 900; color: var(--text); text-transform: uppercase; letter-spacing: .02em; text-align: center; }
+:root[dir=rtl] .cd .end { text-transform: none; letter-spacing: 0; }
+.cd .flash { position: absolute; inset: 0; background: var(--primary); }
+.cd .tick { position: absolute; width: calc(var(--u) * 6); height: calc(var(--u) * 26); background: rgba(255,255,255,.25); border-radius: 3px; }
+</style>
+<script>
+(() => {
+  const N = Math.max(1, P.start || 5);
+  const style = P.style || 'ring';
+  const endT = P.end_text || '';
+  const T = setDuration(N + (endT ? 1.4 : 0.3));
+  if (!P.transparent) backdrop({dur: T, o1: .2, o2: .12});
+  const box = el('div', 'cd');
+  const R = Math.min(W, H) * 0.3;
+  const nums = [];
+  const fsz = style === 'bold' ? Math.min(W, H) * 0.62 : R * 1.05;
+  if (style === 'ring') {
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg'); svg.setAttribute('width', 2 * R + 40); svg.setAttribute('height', 2 * R + 40);
+    svg.setAttribute('viewBox', `${-R - 20} ${-R - 20} ${2 * R + 40} ${2 * R + 40}`);
+    const bgc = document.createElementNS(ns, 'circle'); bgc.setAttribute('r', R); bgc.setAttribute('fill', 'none');
+    bgc.setAttribute('stroke', 'rgba(255,255,255,.12)'); bgc.setAttribute('stroke-width', 16 * U);
+    const fg = document.createElementNS(ns, 'circle'); fg.setAttribute('r', R); fg.setAttribute('fill', 'none');
+    fg.setAttribute('stroke', C.primary); fg.setAttribute('stroke-width', 16 * U); fg.setAttribute('stroke-linecap', 'round');
+    fg.setAttribute('pathLength', '1'); fg.setAttribute('transform', 'rotate(-90)'); fg.style.strokeDasharray = '1 1';
+    const dot = document.createElementNS(ns, 'circle'); dot.setAttribute('r', 16 * U); dot.setAttribute('fill', C.accent);
+    svg.append(bgc, fg, dot); box.appendChild(svg);
+    A(svg, [{transform: 'scale(.6)', opacity: 0}, {transform: 'scale(1)', opacity: 1}], 0, 0.5, 'out');
+    tick((t) => {
+      const inSec = t < N ? t % 1 : 1;
+      const p = t < N ? ease.inOutCubic(inSec) : 1;
+      fg.style.strokeDashoffset = String(1 - p);
+      const a = -Math.PI / 2 + p * Math.PI * 2;
+      dot.setAttribute('cx', Math.cos(a) * R); dot.setAttribute('cy', Math.sin(a) * R);
+      svg.style.visibility = t < N + 0.05 ? 'visible' : 'hidden';
+    });
+  }
+  const dg = (n) => P.digits === 'arabic' ? String(n).replace(/[0-9]/g, (d) => '٠١٢٣٤٥٦٧٨٩'[+d]) : String(n);
+  for (let i = 0; i < N; i++) {
+    const n = el('div', 'num head', box, dg(N - i)); n.style.fontSize = fsz + 'px';
+    const t0 = i;
+    if (style === 'bold') {
+      A(n, [{transform: 'scale(2.2)', opacity: 0, filter: `blur(${16 * U}px)`}, {transform: 'scale(1)', opacity: 1, filter: 'blur(0)'}], t0, 0.28, 'out');
+      A(n, [{transform: 'scale(1)'}, {transform: 'scale(.9)'}], t0 + 0.28, 0.6, 'out3', {fill: 'forwards'});
+      AO(n, [{opacity: 1, transform: 'scale(.9)'}, {opacity: 0, transform: 'scale(.6)'}], t0 + 0.88, 0.12, 'in');
+      if (!P.transparent) { const f = el('div', 'flash', box); box.insertBefore(f, box.firstChild);
+        A(f, [{opacity: 0.0}, {opacity: 0.35}, {opacity: 0}], t0, 0.35, 'out'); }
+    } else {
+      A(n, [{transform: `translateY(${40 * U}px) scale(.8)`, opacity: 0}, {transform: 'none', opacity: 1}], t0, 0.35, 'out');
+      AO(n, [{transform: 'none', opacity: 1}, {transform: `translateY(${-40 * U}px) scale(1.1)`, opacity: 0}], t0 + 0.82, 0.18, 'in');
+    }
+  }
+  if (endT) {
+    const e = el('div', 'end head', box, endT); e.style.fontSize = Math.min(W, H) * 0.3 + 'px'; fit(e, W * 0.85, H * 0.6, 20);
+    A(e, [{transform: 'scale(.3)', opacity: 0}, {transform: 'scale(1.08)', opacity: 1, offset: .7}, {transform: 'scale(1)', opacity: 1}], N, 0.5, 'out3');
+    e.style.color = C.accent;
+    if (!P.transparent) { const f = el('div', 'flash', box); box.insertBefore(f, box.firstChild); A(f, [{opacity: 0}, {opacity: .5}, {opacity: 0}], N, 0.5, 'out'); }
+  }
+})();
+</script>

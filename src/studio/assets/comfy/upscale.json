@@ -1,0 +1,53 @@
+{
+ "_meta": {
+  "title": "model upscale (ESRGAN family) + optional resample to the requested factor"
+ },
+ "nodes": {
+  "20": {
+   "class_type": "LoadImage",
+   "inputs": {
+    "image": "$image"
+   }
+  },
+  "30": {
+   "class_type": "UpscaleModelLoader",
+   "inputs": {
+    "model_name": "$upscale_model"
+   }
+  },
+  "31": {
+   "class_type": "ImageUpscaleWithModel",
+   "inputs": {
+    "upscale_model": [
+     "30",
+     0
+    ],
+    "image": [
+     "20",
+     0
+    ]
+   }
+  },
+  "32": {
+   "class_type": "ImageScaleBy",
+   "inputs": {
+    "image": [
+     "31",
+     0
+    ],
+    "upscale_method": "lanczos",
+    "scale_by": "$rescale"
+   }
+  },
+  "15": {
+   "class_type": "SaveImage",
+   "inputs": {
+    "images": [
+     "32",
+     0
+    ],
+    "filename_prefix": "$prefix"
+   }
+  }
+ }
+}

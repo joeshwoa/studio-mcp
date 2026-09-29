@@ -1,0 +1,44 @@
+{
+ "_meta": {
+  "title": "FLUX (GGUF unet + GGUF T5 + CLIP-L + ae VAE)",
+  "needs": [
+   "ComfyUI-GGUF"
+  ]
+ },
+ "exports": {
+  "MODEL": [
+   "L1",
+   0
+  ],
+  "CLIP": [
+   "L2",
+   0
+  ],
+  "VAE": [
+   "L3",
+   0
+  ]
+ },
+ "nodes": {
+  "L1": {
+   "class_type": "UnetLoaderGGUF",
+   "inputs": {
+    "unet_name": "$unet"
+   }
+  },
+  "L2": {
+   "class_type": "DualCLIPLoaderGGUF",
+   "inputs": {
+    "clip_name1": "$clip_l",
+    "clip_name2": "$t5",
+    "type": "flux"
+   }
+  },
+  "L3": {
+   "class_type": "VAELoader",
+   "inputs": {
+    "vae_name": "$vae"
+   }
+  }
+ }
+}

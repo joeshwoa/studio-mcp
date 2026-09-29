@@ -1,0 +1,76 @@
+<style>
+.cap { position: absolute; left: 7%; right: 7%; display: flex; justify-content: center; }
+.cap .chunk { display: none; text-align: center; font-weight: 800; line-height: 1.18; color: #fff; will-change: transform, opacity;
+  paint-order: stroke fill; -webkit-text-stroke: calc(var(--u) * 10) rgba(0,0,0,.92);
+  text-shadow: 0 calc(var(--u) * 6) calc(var(--u) * 18) rgba(0,0,0,.45); }
+.cap .w { display: inline-block; position: relative; padding: 0 .1em; margin: 0 .02em; border-radius: .14em; }
+.cap.pop .chunk { text-transform: uppercase; letter-spacing: .01em; }
+:root[dir=rtl] .cap.pop .chunk, .cap .chunk.rtl { text-transform: none; letter-spacing: 0; line-height: 1.45; }
+.cap.pop .w.on { background: var(--accent); color: var(--hl-text, #111); -webkit-text-stroke: 0; text-shadow: none; }
+.cap.karaoke .w { color: rgba(255,255,255,.5); }
+.cap.karaoke .w.done { color: #fff; }
+.cap.karaoke .w.on { color: var(--accent); }
+.cap.clean .chunk { font-weight: 600; -webkit-text-stroke: 0; background: rgba(8,9,14,.72); padding: .28em .7em .34em; border-radius: .38em;
+  text-shadow: none; line-height: 1.35; }
+.cap.clean .w { padding: 0; margin: 0; }
+</style>
+<script>
+(() => {
+  const style = P.style || 'pop';
+  const per = Math.max(1, P.chunk || 3);
+  // ---- words with times
+  let words = (P.words || []).map(w => ({word: w.word, start: +w.start, end: +w.end}));
+  if (!words.length) {
+    for (const s of (P.segments || [])) {
+      const ws = String(s.text).split(/\s+/).filter(Boolean);
+      const wt = ws.map(w => w.length + 2), tot = wt.reduce((a, b) => a + b, 0);
+      let t = +s.start; const span = (+s.end - +s.start);
+      ws.forEach((w, i) => { const d = span * wt[i] / tot; words.push({word: w, start: t, end: t + d, seg: s}); t += d; });
+      if (words.length) words[words.length - 1].segEnd = true;
+    }
+  }
+  // ---- chunks: ≤ per words (clean: whole sentences up to 8 words), break on gaps, punctuation, segment ends
+  const maxW = style === 'clean' ? Math.max(per, 8) : per;
+  const chunks = []; let cur = [];
+  words.forEach((w, i) => {
+    cur.push(w);
+    const nx = words[i + 1];
+    const brk = !nx || cur.length >= maxW || w.segEnd || /[.!?؟،,;:…]$/.test(w.word) || (nx.start - w.end > 0.45);
+    if (brk) { chunks.push(cur); cur = []; }
+  });
+  chunks.forEach((c, i) => { c.start = c[0].start; const nx = chunks[i + 1]; c.end = Math.min(c[c.length - 1].end + 0.5, nx ? nx[0].start : 1e9); });
+  const pos = P.position && P.position !== 'auto' ? P.position : (PORTRAIT ? 'lower' : 'bottom');
+  const box = el('div', 'cap ' + style);
+  const topFrac = {top: 0.14, middle: 0.46, lower: 0.64, bottom: 0.8}[pos] ?? 0.8;
+  box.style.top = (H * topFrac) + 'px';
+  const fs = (style === 'clean' ? (PORTRAIT ? 58 : 50) : (PORTRAIT ? 92 : 74)) * U;
+  const nodes = chunks.map(c => {
+    const d = el('div', 'chunk head', box); d.style.fontSize = fs + 'px';
+    if (isRTL(c.map(w => w.word).join(' '))) { d.classList.add('rtl'); d.dir = 'rtl'; }
+    c.spans = c.map((w, i) => { const s = el('span', 'w', d, w.word); if (i < c.length - 1) d.appendChild(document.createTextNode(' ')); return s; });
+    return d;
+  });
+  const maxWidth = W * 0.86;
+  nodes.forEach(n => { n.style.display = 'block'; n.style.maxWidth = maxWidth + 'px'; fit(n, maxWidth, fs * 3.2, 16); n.style.display = 'none'; });
+  setDuration(Math.max(1, ...chunks.map(c => c.end)) + 0.2);
+  let shown = -1;
+  tick((t) => {
+    let k = -1;
+    for (let i = 0; i < chunks.length; i++) if (t >= chunks[i].start - 0.02 && t < chunks[i].end) { k = i; }
+    if (k !== shown) { if (shown >= 0) nodes[shown].style.display = 'none'; if (k >= 0) nodes[k].style.display = 'block'; shown = k; }
+    if (k < 0) return;
+    const c = chunks[k], n = nodes[k];
+    const p = prog(t, c.start, style === 'clean' ? 0.25 : 0.16);
+    if (style === 'pop') { const s = 0.78 + 0.22 * ease.outBack(p); n.style.transform = `scale(${s})`; n.style.opacity = Math.min(1, p * 2.5); }
+    else if (style === 'karaoke') { n.style.transform = `translateY(${(1 - ease.outCubic(p)) * 18 * U}px)`; n.style.opacity = p; }
+    else { const out = prog(t, c.end - 0.2, 0.2); n.style.opacity = Math.min(p, 1 - out); n.style.transform = `translateY(${(1 - ease.outCubic(p)) * 10 * U}px)`; }
+    c.forEach((w, i) => {
+      const on = t >= w.start && t < (c[i + 1] ? c[i + 1].start : c.end);
+      c.spans[i].classList.toggle('on', on && style !== 'clean');
+      c.spans[i].classList.toggle('done', t >= w.end && !on);
+      if (style === 'pop' && on) { const q = prog(t, w.start, 0.12); c.spans[i].style.transform = `scale(${1 + 0.08 * (1 - q) + 0.04})`; }
+      else c.spans[i].style.transform = '';
+    });
+  });
+})();
+</script>
