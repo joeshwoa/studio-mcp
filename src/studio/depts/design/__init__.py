@@ -172,6 +172,11 @@ def build(template: str, spec: dict, size: str, brand=None, style: str = "", mod
         m = sd.pop("mode", None) or mode or t["mode"]
         ctx = Ctx(cv, merged, theme, master, mode=m,
                   chrome={"index": i, "total": len(items), "swipe": spec.get("swipe")} if slides and len(items) > 1 else None)
+        import re as _re
+        for req in _re.findall(r"(\w+)\*", t["fields"]):
+            if merged.get(req) in (None, "", []):
+                warnings.append(f"{'slide ' + str(i + 1) + ': ' if slides else ''}template '{tname}' expects '{req}' "
+                                f"(fields: {t['fields']}) — the layout has an empty slot for it")
         pgs, css = t["fn"](ctx)
         pages_html += pgs
         css_parts.append(css)
@@ -224,7 +229,8 @@ def design_create(template: str = "headline", content: dict | str = "", size: st
     template: see design_catalog (headline, photo, split, quote, stat, list, event, offer, editorial,
     thumbnail, banner, poster, flyer, business_card, certificate, menu, infographic, letterhead, avatar).
     content: {"headline": "Grow *faster*", "eyebrow": "...", "subhead": "...", "cta": "...", "image": "path|url",
-    "handle": "@you", "lang": "auto|ar|en", ...} — *word* = highlight colour, ==word== = marker, \\n = break.
+    "handle": "@you", "lang": "auto|ar|en", "leave_bottom": 0.3 (keep the lower 30% empty — for reels
+that get burned-in captions), ...} — *word* = highlight colour, ==word== = marker, \\n = break.
     Arabic content flips the layout to RTL automatically. size: preset (ig_square, ig_portrait, ig_story,
     youtube_thumbnail, linkedin_cover, a4, a3, business_card…), 'WxH' px or 'WxHmm'; several comma-separated
     = one design exported at each size. brand: saved brand kit slug (brand_create) — applies its colours,

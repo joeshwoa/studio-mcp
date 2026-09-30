@@ -170,3 +170,19 @@ def test_design_check_overlay(tmp_path):
     Image.new("RGB", (1280, 720), "#335").save(p)
     r = call("design_check", {"path": str(p)})
     assert "youtube_thumbnail" in r.summary and Path(r.previews[0]).exists()
+
+
+@pytest.mark.slow
+@slow
+def test_missing_required_field_warns_and_leave_bottom(tmp_path):
+    import numpy as np
+    from PIL import Image
+    from studio.core.registry import call
+    r = call("design_create", {"template": "offer", "size": "ig_square", "out": str(tmp_path), "content": {"headline": "x"}})
+    assert any("expects 'offer'" in w for w in r.warnings)
+    r = call("design_create", {"template": "headline", "size": "ig_story", "out": str(tmp_path), "style": "midnight",
+                               "content": {"headline": "Big *news* today", "subhead": "More below", "cta": "Go",
+                                           "leave_bottom": 0.3}})
+    im = np.asarray(Image.open([f for f in r.files if f.endswith(".png")][0]).convert("L")).astype(int)
+    low = im[int(im.shape[0] * 0.72):]
+    assert low.std() < 12, "the reserved lower band should hold no text"

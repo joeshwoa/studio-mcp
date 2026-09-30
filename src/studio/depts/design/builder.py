@@ -222,6 +222,15 @@ class Ctx:
             if opts:
                 side, val, _ = min(opts, key=lambda o: o[2])
                 self.pad[side] = max(self.pad[side], b + val)
+        # content.leave_bottom / leave_top: keep that share of the canvas empty (e.g. 0.3 for burned-in
+        # video captions under a reel, or a sticker area) — layout reflows into the rest
+        for side in ("bottom", "top"):
+            try:
+                frac = float(self.spec.get(f"leave_{side}") or 0)
+            except (TypeError, ValueError):
+                frac = 0
+            if 0 < frac < 0.6:
+                self.pad[side] = max(self.pad[side], b + c.h * frac)
         (self.master / "assets").mkdir(parents=True, exist_ok=True)
 
     # typography scale in px, relative to the canvas

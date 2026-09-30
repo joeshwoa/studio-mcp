@@ -83,7 +83,8 @@ def brand_theme(brand: str) -> dict:
     return {"colors": colors, "fonts": fonts, "kit": kit, "name": kit.get("name", ""), "name_ar": kit.get("name_ar", ""),
             "tagline": kit.get("tagline", ""), "tagline_ar": kit.get("tagline_ar", ""),
             "logo_svg": f("horizontal_reversed", "horizontal_mono_white", "horizontal", "stacked_reversed", "stacked"),
-            "icon_svg": f("icon_reversed", "icon", "app_icon")}
+            "icon_svg": f("icon_reversed", "icon", "app_icon"),
+            "stacked_svg": f("stacked_reversed", "stacked", "horizontal_reversed", "horizontal")}
 
 
 def apply_brand(brand: str, colors: dict, fonts, warnings: list[str]) -> tuple[dict, object, dict]:
@@ -320,7 +321,13 @@ def motion_logo_reveal(logo: str = "", tagline: str = "", style: str = "draw", d
     warnings: list[str] = []
     th = brand_theme(brand) if brand else {}
     if not logo and th:
-        logo = th.get("logo_svg") or th.get("icon_svg") or ""
+        try:
+            w_, h_ = (int(v) for v in str(size).lower().split("x")[:2])
+        except ValueError:
+            w_, h_ = 16, 9
+        # portrait / square canvases: the stacked lockup fills the frame far better than a wide one
+        key = "stacked_svg" if h_ >= w_ * 0.95 else "logo_svg"
+        logo = th.get(key) or th.get("logo_svg") or th.get("icon_svg") or ""
         if not tagline:
             tagline = th.get("tagline") or ""
     if not logo:

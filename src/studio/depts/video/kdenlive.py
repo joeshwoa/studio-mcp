@@ -57,9 +57,37 @@ def _color(hexcol: str) -> str:
     return "0x" + h[:6].lower() + "ff"
 
 
+def install_user_fonts(fonts_dir: Path | None) -> list[str]:
+    """Kdenlive/MLT's subtitle filter ignores a private fonts folder, so caption fonts must be user-installed
+    (~/Library/Fonts on macOS, ~/.local/share/fonts on Linux — never system folders). Returns names added."""
+    import platform
+    import shutil
+    import subprocess
+    if not fonts_dir or not Path(fonts_dir).is_dir():
+        return []
+    dest = Path.home() / ("Library/Fonts" if platform.system() == "Darwin" else ".local/share/fonts")
+    added = []
+    try:
+        dest.mkdir(parents=True, exist_ok=True)
+        for f in Path(fonts_dir).glob("*.[ot]tf"):
+            t = dest / f"studio-{f.name}"
+            if not t.exists():
+                shutil.copy2(f, t)
+                added.append(f.name)
+        if added and shutil.which("fc-cache"):
+            subprocess.run(["fc-cache", "-f", str(dest)], capture_output=True, timeout=120)
+    except OSError:
+        return []
+    return added
+
+
 def write(tl: TL.Timeline, dest: Path, audio_duck: list | None = None, subtitles: Path | None = None,
           fonts_dir: Path | None = None) -> Path:
     LAST_NOTES.clear()
+    added = install_user_fonts(fonts_dir) if subtitles else []
+    if added:
+        LAST_NOTES.append("installed caption font(s) " + ", ".join(added) +
+                          " into your user fonts so Kdenlive shows the captions in the right typeface")
     w = _W(tl.fps)
     fr = TL.Fraction(tl.fps).limit_denominator(1001)
     total = max(1, w.f(tl.duration))

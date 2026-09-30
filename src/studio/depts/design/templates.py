@@ -440,8 +440,13 @@ def t_offer(c: Ctx):
     if price:
         pr = (f'<div class="price">{c.T(f"{price}", "head pv", fit=(c.fs(9), c.fs(4)))}'
               f'{c.T(cur, "body pc", fit=(c.fs(3.2), c.fs(2)))}{c.T(old, "body old", fit=(c.fs(3.2), c.fs(2)))}</div>')
-    visual = (f'<div class="vis"><i class="disc" data-decor></i><img src="{src}"></div>' if src else
-              '<div class="vis"><i class="disc" data-decor></i></div>')
+    icon_src = None if src else c.logo_src(True, "icon")
+    if src:
+        visual = f'<div class="vis"><i class="disc" data-decor></i><img src="{src}"></div>'
+    elif icon_src:  # no product photo: the brand symbol sits in the disc instead of an empty circle
+        visual = f'<div class="vis"><i class="disc" data-decor></i><img class="mk" src="{icon_src}"></div>'
+    else:
+        visual = '<div class="vis"><i class="disc" data-decor></i></div>'
     body = f"""
 <div class="frame {'h' if horiz else 'v'}">
   <div class="top row">{c.logo(c.theme.vars(c.mode)['dark'] == '1')}<div class="grow"></div>{c.T(c.get("eyebrow", "tag"), "eyebrow")}</div>
@@ -464,6 +469,7 @@ def t_offer(c: Ctx):
 .tpl-offer .frame.h .mid{flex-direction:row-reverse;align-items:center}
 .tpl-offer .vis{position:relative;flex:1 1 50%;min-height:0;align-self:stretch;display:grid;place-items:center}
 .tpl-offer .vis img{position:absolute;inset:4% 0;width:100%;height:92%;object-fit:contain;filter:drop-shadow(0 calc(var(--u)*2) calc(var(--u)*3) rgba(0,0,0,.28))}
+.tpl-offer .vis img.mk{inset:auto;width:min(46%,calc(var(--u)*30));height:auto;filter:none}
 .tpl-offer .disc{position:absolute;width:min(100%,calc(var(--u)*62));aspect-ratio:1;border-radius:50%;background:var(--primary);opacity:1}
 .tpl-offer .main{display:flex;flex-direction:column;justify-content:center;gap:calc(var(--u)*1.2);flex:0 1 auto}
 .tpl-offer .frame.h .main{flex:1 1 50%;height:100%}

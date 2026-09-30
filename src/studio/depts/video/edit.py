@@ -57,7 +57,9 @@ def video_edit(timeline: dict | str, brand: str = "", kdenlive: bool = True, pro
     {"color", "duration"} | {"title", "subtitle", "duration", "style"}], "overlays": [{"type": lower_third|
     title|cta|kinetic|counter|motion|shape_wipe|overlay|image|broll|pip, "at", "duration", …}], "audio":
     [{"src", "at", "volume_db", "duck", "fade_in", "fade_out", "loop"}], "captions": {"auto": true,
-    "style": reels|bold|karaoke|clean|boxed}, "grade": "teal_orange", "fade_in", "fade_out", "loudness":
+    "style": reels|bold|karaoke|clean|boxed, "position": auto|bottom|lower|center|top, "font", "font_ar"
+    (Arabic defaults to Tajawal — it renders right in the MP4 AND in Kdenlive)}, "extend_to_audio": true
+    (a voiceover longer than the picture holds the last still), "grade": "teal_orange", "fade_in", "fade_out", "loudness":
     "youtube"} (a dict, JSON string or .json path; relative paths resolve next to the .json).
     brand: brand kit slug for titles/lower thirds/captions. Returns MP4, .kdenlive, .srt/.ass when
     captioned, a contact sheet and the melt check preview — LOOK at both."""

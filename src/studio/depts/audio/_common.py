@@ -25,7 +25,8 @@ AUDIO_EXTS = {".wav", ".mp3", ".m4a", ".aac", ".flac", ".ogg", ".opus", ".aiff",
               ".mp4", ".mov", ".mkv", ".avi", ".m4v"}
 
 TARGETS = {  # name → (integrated LUFS, true-peak ceiling dBTP)
-    "streaming": (-14.0, -1.0), "youtube": (-14.0, -1.0), "spotify": (-14.0, -1.0), "reels": (-14.0, -1.0),
+    "streaming": (-14.0, -1.0), "youtube": (-14.0, -1.0), "spotify": (-14.0, -1.0), "reels": (-14.0, -1.0), "social": (-14.0, -1.0),
+    "instagram": (-14.0, -1.0), "facebook": (-14.0, -1.0), "web": (-14.0, -1.0), "shorts": (-14.0, -1.0),
     "tiktok": (-14.0, -1.0), "apple": (-16.0, -1.0), "podcast": (-16.0, -1.0), "voiceover": (-16.0, -1.0),
     "broadcast": (-23.0, -1.0), "ebu": (-23.0, -1.0), "atsc": (-24.0, -2.0),
 }

@@ -240,6 +240,13 @@ def normalize(spec: dict, assets_dir: Path, base_dir: Path | None = None, brand:
         if p.suffix.lower() in C.IMAGE_EXTS:
             with Image.open(p) as im:
                 sw, sh = im.size
+            fit = str(c.get("fit", "auto"))
+            if fit != "cover" and abs((sw / sh) / (W / H) - 1) >= 0.12:
+                # a still of another shape (a 4:5 post in a 9:16 reel): composite it onto a full frame first
+                # so Ken Burns moves the whole design instead of cropping its text off (same file in Kdenlive)
+                p = _still_to_frame(p, W, H, "contain" if fit == "contain" else "blur", tl.background, assets_dir, i)
+                tl.assets.append(p)
+                sw, sh = W, H
             tl.clips.append(Clip("image", p, _f(c, "duration", 3.0), src_w=sw, src_h=sh,
                                  ken_burns=str(c.get("ken_burns", "in")), **common))
             continue
@@ -300,6 +307,19 @@ def normalize(spec: dict, assets_dir: Path, base_dir: Path | None = None, brand:
                                    duck=bool(a.get("duck", False)), duck_db=_f(a, "duck_db", 10.0),
                                    fade_in=_f(a, "fade_in", 0.0), fade_out=_f(a, "fade_out", 0.0),
                                    loop=bool(a.get("loop", False)), src_dur=info["duration"]))
+    # voice/dialogue tracks (not looping beds) must not be cut off by the picture ending first
+    need = max([a.at + ((a.dur or (a.src_dur - a.src_in))) for a in tl.audio if not a.loop] or [0.0])
+    if need > tl.duration + 0.05:
+        last = tl.clips[-1]
+        extra = round(need - tl.duration + 0.4, 3)  # a short breath after the last word
+        if last.kind in ("image", "color") and spec.get("extend_to_audio", True):
+            last.dur = round(last.dur + extra, 4)
+            tl.duration = round(tl.duration + extra, 4)
+            warnings.append(f"audio runs {need:.2f}s but the picture ended at {tl.duration - extra:.2f}s — "
+                            f"held the last {last.kind} {extra:.2f}s longer (extend_to_audio=false to keep the cut)")
+        else:
+            warnings.append(f"audio runs to {need:.2f}s but the picture ends at {tl.duration:.2f}s — the audio is CUT. "
+                            f"Lengthen a clip, add a still/colour/title at the end, or trim the audio")
     tl.captions = spec.get("captions") or None
     tl.grade = spec.get("grade")
     tl.fade_in, tl.fade_out = _f(spec, "fade_in", 0.0), _f(spec, "fade_out", 0.0)
@@ -374,6 +394,27 @@ def _overlay(o: dict, k: int, tl: Timeline, assets_dir: Path, base_dir: Path | N
 
 
 # ───────────────────────────── video graph ─────────────────────────────
+
+def _still_to_frame(p: Path, W: int, H: int, mode: str, bg: str, assets_dir: Path, i: int) -> Path:
+    from PIL import ImageFilter, ImageEnhance
+    with Image.open(p) as im:
+        im = im.convert("RGBA")
+        scale = min(W / im.width, H / im.height)
+        fg = im.resize((max(1, round(im.width * scale)), max(1, round(im.height * scale))), Image.LANCZOS)
+        if mode == "blur":
+            s2 = max(W / im.width, H / im.height)
+            back = im.convert("RGB").resize((max(W, round(im.width * s2)), max(H, round(im.height * s2))), Image.LANCZOS)
+            l, t = (back.width - W) // 2, (back.height - H) // 2
+            back = back.crop((l, t, l + W, t + H)).filter(ImageFilter.GaussianBlur(max(W, H) / 40))
+            back = ImageEnhance.Brightness(back).enhance(0.8)
+        else:
+            back = Image.new("RGB", (W, H), bg)
+        back.paste(fg, ((W - fg.width) // 2, (H - fg.height) // 2), fg)
+    assets_dir.mkdir(parents=True, exist_ok=True)
+    out = assets_dir / f"still-{i + 1}-{p.stem[:40]}-{W}x{H}.png"
+    back.save(out)
+    return out
+
 
 def _fit_chain(c: Clip, W: int, H: int, bg: str, lbl_in: str, lbl_out: str, n: int) -> str:
     """Scale/crop/pad one source into W×H according to fit/zoom/focus."""

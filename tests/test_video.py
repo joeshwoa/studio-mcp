@@ -252,3 +252,28 @@ def test_reframe_track(home, media):
     r = call("video_reframe", {"path": str(media["a"]), "aspect": "9:16", "project": "t"})
     info = C.probe(r.files[0])
     assert (info["width"], info["height"]) == (1080, 1920)
+
+
+# ─────────────────────────── regressions from the end-to-end "creative team" run ───────────────────────────
+
+def test_still_of_other_shape_is_placed_whole(home, media, tmp_path):
+    """A 4:3 still in a 9:16 reel must not be cropped (Ken Burns used to cut the design's text off)."""
+    tl = TL.normalize({"size": "9:16", "clips": [{"image": str(media["img"]), "duration": 2}]}, tmp_path)
+    c = tl.clips[0]
+    assert (c.src_w, c.src_h) == (tl.W, tl.H) and c.src != media["img"] and c.src.exists()
+    tl2 = TL.normalize({"size": "9:16", "clips": [{"image": str(media["img"]), "duration": 2, "fit": "cover"}]}, tmp_path)
+    assert tl2.clips[0].src == media["img"]
+
+
+def test_voiceover_longer_than_picture(home, media, tmp_path):
+    tone = media["dir"] / "vo.wav"
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "sine=f=300:d=5", str(tone)], check=True)
+    tl = TL.normalize({"clips": [{"image": str(media["img"]), "duration": 2}], "audio": [{"src": str(tone), "at": 0.5}]}, tmp_path)
+    assert tl.duration >= 5.5 and any("held the last image" in w for w in tl.warnings)
+    tl = TL.normalize({"clips": [{"src": str(media["b"])}], "audio": [{"src": str(tone)}]}, tmp_path)
+    assert any("CUT" in w for w in tl.warnings)
+
+
+def test_social_loudness_alias():
+    from studio.depts.video.render import _target
+    assert _target("social") == -14.0 and _target("reels") == -14.0

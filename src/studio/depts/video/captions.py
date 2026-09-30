@@ -119,8 +119,10 @@ def font_files(latin: str, arabic: str, weight: int, dest: Path) -> tuple[str, s
             shutil.copy2(p, dest / p.name)
             tt = TTFont(str(p))
             nm = tt["name"]
-            full = nm.getDebugName(4) or nm.getDebugName(1) or fam
-            names.append(full)
+            # the typographic FAMILY name + ASS Bold flag: matches both through fontsdir (ffmpeg) and through
+            # fontconfig (MLT/Kdenlive, which ignores fontsdir and only knows families + styles)
+            family = nm.getDebugName(16) or nm.getDebugName(1) or fam
+            names.append(family + ("|b" if weight >= 600 else ""))
         except Exception as e:
             warns.append(f"font {fam} unavailable ({e}); using a fallback")
             names.append(fam)
@@ -168,13 +170,15 @@ def build_ass(words: list[dict], W: int, H: int, style: str = "reels", *, per: i
         "Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
     ]
     for suffix, fnt in (("", font), ("_ar", font_ar)):
+        bold = "-1" if fnt.endswith("|b") else "0"
+        fnt = fnt[:-2] if fnt.endswith("|b") else fnt
         fsz = int(fs * (1.22 if suffix else 1.0))
         prim, sec = (ac, tc) if style == "karaoke" else (tc, tc)
-        hdr.append(f"Style: Base{suffix},{fnt},{fsz},{prim},{sec},{blk},{back},0,0,0,0,100,100,0,0,{bs},{outline},{shadow},{align},{mlr},{mlr},{marginv},1")
+        hdr.append(f"Style: Base{suffix},{fnt},{fsz},{prim},{sec},{blk},{back},{bold},0,0,0,100,100,0,0,{bs},{outline},{shadow},{align},{mlr},{mlr},{marginv},1")
         # highlight layer: box behind the active word (reels) or accent-coloured word (bold)
         pad = max(4, int(fs * 0.16))
-        hdr.append(f"Style: Hi{suffix},{fnt},{fsz},{dark},{dark},{ac},{ac},0,0,0,0,100,100,0,0,3,{pad},0,{align},{mlr},{mlr},{marginv},1")
-        hdr.append(f"Style: Col{suffix},{fnt},{fsz},{ac},{ac},{blk},{back},0,0,0,0,100,100,0,0,1,{outline},0,{align},{mlr},{mlr},{marginv},1")
+        hdr.append(f"Style: Hi{suffix},{fnt},{fsz},{dark},{dark},{ac},{ac},{bold},0,0,0,100,100,0,0,3,{pad},0,{align},{mlr},{mlr},{marginv},1")
+        hdr.append(f"Style: Col{suffix},{fnt},{fsz},{ac},{ac},{blk},{back},{bold},0,0,0,100,100,0,0,1,{outline},0,{align},{mlr},{mlr},{marginv},1")
     hdr += ["", "[Events]", "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text"]
     ev = []
     for ch in chunks:

@@ -23,7 +23,7 @@ def _target(loud) -> float | None:
         from ..audio._common import TARGETS
         k = str(loud).lower()
         if k not in TARGETS:
-            raise ToolError(f"unknown loudness target {loud!r}", "youtube/streaming (-14), podcast (-16), broadcast (-23) or a number")
+            raise ToolError(f"unknown loudness target {loud!r}", f"a LUFS number or one of {sorted(TARGETS)}")
         return TARGETS[k][0]
 
 
@@ -121,16 +121,61 @@ def caption_words(tl: TL.Timeline, audio: Path | None, work: Path, warnings: lis
     raise ToolError("captions: pass auto=true (transcribe), srt=<file> or words=[…]")
 
 
+def alpha_captions(ass: Path, fonts_dir: Path, tl: TL.Timeline, dest: Path) -> Path:
+    """Captions as a transparent video. libass blends colour but never writes alpha, so render the
+    subtitles over black AND over white: alpha = 1 - (white - black), colour = black / alpha."""
+    import subprocess
+    import numpy as np
+    W, H = tl.W, tl.H
+    fps = TL.fps_str(tl.fps)
+    vf = f"ass=filename='{C.ff_path(ass)}':fontsdir='{C.ff_path(fonts_dir)}'"
+
+    def src(col):
+        return subprocess.Popen(["ffmpeg", "-loglevel", "error", "-f", "lavfi", "-i",
+                                 f"color=c={col}:s={W}x{H}:r={fps}:d={tl.duration:.3f}", "-vf", vf + ",format=rgb24",
+                                 "-f", "rawvideo", "-"], stdout=subprocess.PIPE)
+    pb, pw = src("black"), src("white")
+    out = subprocess.Popen(["ffmpeg", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgba", "-s", f"{W}x{H}",
+                            "-r", fps, "-i", "-", "-c:v", "qtrle", "-pix_fmt", "argb", str(dest)], stdin=subprocess.PIPE)
+    n = W * H * 3
+    try:
+        while True:
+            b, w = pb.stdout.read(n), pw.stdout.read(n)
+            if len(b) < n or len(w) < n:
+                break
+            fb = np.frombuffer(b, np.uint8).reshape(H, W, 3).astype(np.float32)
+            fw = np.frombuffer(w, np.uint8).reshape(H, W, 3).astype(np.float32)
+            a = np.clip(255.0 - (fw - fb).mean(axis=2), 0, 255)
+            colr = np.where(a[..., None] > 0, np.clip(fb * 255.0 / np.maximum(a[..., None], 1), 0, 255), 0)
+            out.stdin.write(np.dstack([colr, a]).astype(np.uint8).tobytes())
+    finally:
+        out.stdin.close()
+        out.wait()
+        pb.wait()
+        pw.wait()
+    if out.returncode != 0 or not dest.exists():
+        raise ToolError("could not render the caption overlay for Kdenlive")
+    return dest
+
+
 def caption_style(cap: dict, tl: TL.Timeline, brand_colors: dict) -> dict:
     return {"style": cap.get("style", "reels" if tl.H > tl.W else "clean"),
             "accent": cap.get("accent") or brand_colors.get("accent") or "#FFD400",
             "position": cap.get("position", "auto"), "per": int(cap.get("words_per_chunk", 0) or 0),
-            "size_scale": float(cap.get("size", 1.0) or 1.0), "uppercase": cap.get("uppercase")}
+            "size_scale": float(cap.get("size", 1.0) or 1.0), "uppercase": cap.get("uppercase"),
+            "font": cap.get("font", ""), "font_ar": cap.get("font_ar", "")}
+
+
+# Arabic caption faces that render correctly in BOTH libass paths (ffmpeg with a fonts folder, and
+# MLT/Kdenlive through fontconfig). Display faces whose hamza/marks are built with GSUB marks (El Messiri,
+# Cairo…) show boxes in the Kdenlive path, so Arabic captions use a safe face unless font_ar is given.
+SAFE_AR_CAPTION = ("Tajawal",)
 
 
 def make_captions(tl: TL.Timeline, words: list[dict], work: Path, fonts: dict, cst: dict, warnings: list[str]) -> tuple[Path, Path]:
     fd = work / "fonts"
-    lat, ar, fw = K.font_files(fonts.get("head", "Montserrat"), fonts.get("head_ar", "Cairo"),
+    ar_fam = cst.get("font_ar") or (fonts.get("body_ar") if fonts.get("body_ar") in SAFE_AR_CAPTION else SAFE_AR_CAPTION[0])
+    lat, ar, fw = K.font_files(cst.get("font") or fonts.get("head", "Montserrat"), ar_fam,
                                800 if cst["style"] in ("reels", "bold") else 700, fd)
     warnings += fw
     ass, chunks = K.build_ass(words, tl.W, tl.H, cst["style"], per=cst["per"], accent=cst["accent"], font=lat, font_ar=ar,
@@ -202,8 +247,24 @@ def render(spec: dict, *, project: str, out: str, name: str, base_dir: Path | No
         if kdenlive:
             from . import kdenlive as KD
             try:
-                kd = KD.write(tl, C.sibling(dest, "", ".kdenlive"), audio_duck=data.get("duck_regions"),
-                              subtitles=ass_keep, fonts_dir=assets / "fonts" if ass_keep else None)
+                kd_subs, kd_tl = ass_keep, tl
+                if ass_keep and K.is_rtl(Path(ass_keep).read_text(encoding="utf-8")):
+                    # MLT's subtitle filter mis-shapes Arabic (boxes for hamza/final forms) — ffmpeg's does not.
+                    # So the Kdenlive project gets the captions as a transparent video on the top track, rendered
+                    # by ffmpeg exactly like the MP4; the .srt/.ass stay beside it for re-timing or re-styling.
+                    import copy
+                    cap_mov = C.sibling(dest, "-captions", ".mov")
+                    fdir = assets / "fonts"
+                    alpha_captions(Path(ass_keep), assets / "fonts", tl, cap_mov)
+                    kd_tl = copy.copy(tl)
+                    kd_tl.overlays = list(tl.overlays) + [TL.Overlay("alpha", cap_mov, 0.0, tl.duration, label="Captions (burned)")]
+                    kd_subs = None
+                    res.files.append(str(cap_mov))
+                kd = KD.write(kd_tl, C.sibling(dest, "", ".kdenlive"), audio_duck=data.get("duck_regions"),
+                              subtitles=kd_subs, fonts_dir=assets / "fonts" if kd_subs else None)
+                if ass_keep and kd_subs is None:
+                    KD.LAST_NOTES.append("Kdenlive: Arabic captions are a transparent video track (MLT mis-shapes Arabic "
+                                         "subtitles); edit wording/timing in the .srt and re-run, or import the .srt as a subtitle track")
                 res.files.append(str(kd))
                 if validate:
                     v = KD.validate(kd, dest, work)
