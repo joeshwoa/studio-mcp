@@ -30,6 +30,11 @@ def _params(fn) -> list[str]:
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
+    try:  # `studio help x | head` must not end in a BrokenPipeError traceback
+        import signal
+        signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+    except (AttributeError, ValueError):
+        pass
     raw = False
     if argv[:1] == ["--json"]:
         raw, argv = True, argv[1:]
