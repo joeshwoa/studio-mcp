@@ -123,6 +123,13 @@ def _p(d):
     return f'<path d="{d}"/>'
 
 
+def _sk(d, w, cut=False, transform=""):
+    """Stroked open path (steam, handles, bean crease). In a cut it is drawn black in the mask."""
+    col_ = "#000" if cut else "currentColor"
+    tr = f' transform="{transform}"' if transform else ""
+    return f'<path d="{d}" fill="none" stroke="{col_}" stroke-width="{w}" stroke-linecap="round" stroke-linejoin="round"{tr}/>'
+
+
 def _quarter(x, y, s, corner):
     """Quarter circle filling an s×s cell, centred on the given corner (0 tl,1 tr,2 br,3 bl)."""
     cx, cy = [(x, y), (x + s, y), (x + s, y + s), (x, y + s)][corner]
@@ -142,8 +149,8 @@ def mark(kind: str, initials: str, font: str, weight: int, seed: int) -> Mark:
     elif kind == "monogram_square":
         m.layers.append(('<rect x="0" y="0" width="100" height="100" rx="24"/>', "primary"))
         ini = initials[:2]
-        m.cuts.append(glyph_fit(ini, font, weight, (18, 28, 64, 44)))
-        m.layers.append((_circle(80, 80, 7.5), "accent"))
+        m.cuts.append(glyph_fit(ini, font, weight, (16, 24, 68, 44)))
+        m.layers.append((_circle(83, 83, 6.5), "accent"))
     elif kind == "monogram_letter":
         m.layers.append((glyph_fit(L, font, weight, (6, 4, 80, 92)), "primary"))
         m.layers.append((_circle(86, 88, 9), "accent"))
@@ -211,39 +218,94 @@ def mark(kind: str, initials: str, font: str, weight: int, seed: int) -> Mark:
             y = 18 + i * 28
             m.layers.append((f'<path d="M0 {y + 10}C16 {y - 6} 34 {y - 6} 50 {y + 10}S84 {y + 26} 100 {y + 10}V{y + 24}C84 {y + 40} 66 {y + 40} 50 {y + 24}S16 {y + 8} 0 {y + 24}Z"/>',
                              "accent" if i == 1 else "primary"))
+    elif kind == "cup":
+        m.layers.append((_p("M16 38H76V60C76 79 63 92 46 92C29 92 16 79 16 60Z"), "primary"))
+        m.layers.append((_sk("M76 46H80A11 11 0 0 1 80 68H75", 7), "primary"))
+        for x in (36, 55):
+            m.layers.append((_sk(f"M{x} 29C{x - 6} 23 {x + 6} 17 {x} 9", 5), "accent"))
+    elif kind == "bean":
+        m.layers.append(('<ellipse cx="50" cy="50" rx="30" ry="45" transform="rotate(35 50 50)"/>', "primary"))
+        m.cuts.append(_sk("M50 7C36 30 64 70 50 93", 7, cut=True, transform="rotate(35 50 50)"))
+    elif kind == "bowl":
+        m.layers.append((_p("M6 48H94C94 73 74 92 50 92C26 92 6 73 6 48Z"), "primary"))
+        for x in (32, 50, 68):
+            m.layers.append((_sk(f"M{x} 38C{x - 6} 31 {x + 6} 24 {x} 16", 5), "accent"))
+    elif kind == "drop":
+        m.layers.append((_p("M50 4C50 4 16 44 16 64A34 34 0 0 0 84 64C84 44 50 4 50 4Z"), "primary"))
+        m.cuts.append(_sk("M32 64A18 18 0 0 0 50 82", 6, cut=True))
+    elif kind == "roof":
+        m.layers.append((_p("M50 6L96 46H84V94H16V46H4Z"), "primary"))
+        m.cuts.append(_p("M42 94V70A8 8 0 0 1 58 70V94Z"))
+        m.layers.append((_circle(50, 44, 7), "accent+"))
+    elif kind == "book":
+        m.layers.append((_p("M4 22C20 13 37 13 47 23V92C37 82 20 82 4 90Z"), "primary"))
+        m.layers.append((_p("M96 22C80 13 63 13 53 23V92C63 82 80 82 96 90Z"), "primary"))
+        m.layers.append((_p("M68 20H80V48L74 42L68 48Z"), "accent+"))
+    elif kind == "shield":
+        m.layers.append((_p("M50 4L90 18V48C90 72 72 88 50 96C28 88 10 72 10 48V18Z"), "primary"))
+        m.cuts.append(glyph_fit(L, font, weight, (30, 28, 40, 40)))
+    elif kind == "bars":
+        for i, h in enumerate((42, 66, 92)):
+            m.layers.append((f'<rect x="{4 + i * 33}" y="{96 - h}" width="26" height="{h}" rx="7"/>', "accent" if i == 2 else "primary"))
+    elif kind == "bolt":
+        m.layers.append((_p("M60 2L14 58H46L38 98L86 40H54Z"), "primary"))
+        m.layers.append((_circle(84, 84, 9), "accent"))
+    elif kind == "heart":
+        m.layers.append((_p("M50 92C20 72 4 54 4 33A23 23 0 0 1 50 22A23 23 0 0 1 96 33C96 54 80 72 50 92Z"), "primary"))
+        m.layers.append((_circle(72, 34, 8), "accent+"))
+    elif kind == "plus":
+        m.layers.append(('<rect x="33" y="4" width="34" height="92" rx="11"/>', "primary"))
+        m.layers.append(('<rect x="4" y="33" width="92" height="34" rx="11"/>', "primary"))
+        m.layers.append((_circle(50, 50, 9), "accent+"))
+    elif kind == "star8":
+        m.layers.append(('<rect x="18" y="18" width="64" height="64" rx="3"/>', "primary"))
+        m.layers.append(('<rect x="18" y="18" width="64" height="64" rx="3" transform="rotate(45 50 50)"/>', "primary"))
+        m.cuts.append(_circle(50, 50, 17))
+        m.layers.append((_circle(50, 50, 9), "accent+"))
+    elif kind == "sun":
+        m.layers.append((_circle(50, 50, 25), "primary"))
+        for i in range(12):
+            m.layers.append((f'<rect x="47" y="1" width="6" height="15" rx="3" transform="rotate({i * 30} 50 50)"/>', "accent"))
+    elif kind == "pyramid":
+        m.layers.append((_p("M46 10L94 92H2Z"), "primary"))
+        m.layers.append((_p("M46 10L94 92H60Z"), "secondary+"))
+        m.layers.append((_circle(84, 20, 10), "accent"))
+    elif kind == "bubble":
+        m.layers.append((_p("M14 8H86A10 10 0 0 1 96 18V64A10 10 0 0 1 86 74H46L24 94V74H14A10 10 0 0 1 4 64V18A10 10 0 0 1 14 8Z"), "primary"))
+        for x in (30, 50, 70):
+            m.cuts.append(_circle(x, 41, 7))
+    elif kind == "pin":
+        m.layers.append((_p("M50 97C50 97 13 61 13 38A37 37 0 0 1 87 38C87 61 50 97 50 97Z"), "primary"))
+        m.cuts.append(_circle(50, 38, 16))
+        m.layers.append((_circle(50, 38, 8), "accent+"))
+    elif kind == "sprout":
+        m.layers.append(('<rect x="46" y="42" width="8" height="54" rx="4"/>', "primary"))
+        m.layers.append((_p("M47 62C47 39 31 27 6 27C6 51 22 62 47 62Z"), "accent"))
+        m.layers.append((_p("M53 50C53 25 69 10 95 10C95 37 79 50 53 50Z"), "primary"))
     else:
         raise ValueError(kind)
     return m
 
 
 MARK_KINDS = ["monogram_circle", "monogram_square", "monogram_letter", "letter_split", "hexagon", "quarters", "orbit",
-              "stack", "petals", "arch", "spark", "chevrons", "leaf", "wave"]
+              "stack", "petals", "arch", "spark", "chevrons", "leaf", "wave",
+              # subject marks (relate to what the business does)
+              "cup", "bean", "bowl", "drop", "roof", "book", "shield", "bars", "bolt", "heart", "plus", "star8", "sun",
+              "pyramid", "bubble", "pin", "sprout"]
+MONOGRAMS = ("monogram_circle", "monogram_square", "monogram_letter", "letter_split", "hexagon", "shield")
 
-SECTOR_MARKS = [
-    (["tech", "ai", "software", "digital", "saas", "startup", "app", "data", "cyber"], ["spark", "stack", "quarters", "monogram_square", "letter_split"]),
-    (["finance", "bank", "consult", "legal", "insurance", "corporate", "invest", "logistic"], ["monogram_square", "chevrons", "hexagon", "stack"]),
-    (["health", "clinic", "medical", "wellness", "care", "pharma", "dental", "spa"], ["petals", "leaf", "orbit", "monogram_circle"]),
-    (["eco", "organic", "green", "farm", "agri", "garden", "nature", "plant"], ["leaf", "petals", "wave", "orbit"]),
-    (["food", "cafe", "coffee", "restaurant", "bakery", "kitchen", "juice", "sweet"], ["monogram_circle", "petals", "arch", "quarters"]),
-    (["luxury", "fashion", "jewel", "beauty", "perfume", "boutique", "bridal"], ["monogram_letter", "arch", "petals", "hexagon"]),
-    (["heritage", "egypt", "tradition", "craft", "culture", "museum", "tourism", "travel", "hotel"], ["arch", "hexagon", "wave", "petals"]),
-    (["creative", "agency", "design", "studio", "media", "art", "production", "music"], ["quarters", "letter_split", "spark", "orbit"]),
-    (["education", "academy", "school", "course", "training", "learn", "kids"], ["orbit", "stack", "monogram_circle", "quarters"]),
-    (["real estate", "property", "architecture", "construction", "develop", "build"], ["arch", "hexagon", "stack", "chevrons"]),
-    (["sport", "fitness", "gym", "energy", "delivery", "fast", "motion"], ["chevrons", "letter_split", "spark", "wave"]),
-]
-
-
-def pick_marks(brief: str, n: int) -> list[str]:
-    t = (brief or "").lower()
-    out: list[str] = []
-    for keys, kinds in SECTOR_MARKS:
-        if any(k in t for k in keys):
-            out += [k for k in kinds if k not in out]
+def pick_marks(brief: str, n: int, name: str = "") -> list[str]:
+    """Marks for a brief: subject marks for the detected sector first, then geometry, and (n ≥ 3) always
+    one monogram so the client can compare symbol vs lettermark."""
+    from .brief import direction
+    kinds = direction(name, brief)["marks"]
     for k in ["monogram_square", "orbit", "quarters", "spark", "arch", "monogram_circle"]:
-        if k not in out:
-            out.append(k)
-    return out[:n]
+        if k not in kinds:
+            kinds.append(k)
+    out = kinds[:n]
+    if n >= 3 and not any(k in MONOGRAMS for k in out):
+        out[-1] = next(k for k in kinds if k in MONOGRAMS)
+    return out
 
 
 # ---------------------------------------------------------------------------------------- SVG assembly
@@ -280,7 +342,8 @@ def mark_group(m: Mark, colors: dict, x: float, y: float, size: float) -> tuple[
     body, top = [], []
     for el, role in m.layers:
         el2 = el.replace("url(#cl-a)", f"url(#{uid}a)").replace("url(#cl-b)", f"url(#{uid}b)")
-        (top if role.endswith("+") else body).append(f'<g fill="{colors[role.rstrip("+")]}">{el2}</g>')
+        c_ = colors.get(role.rstrip("+"), colors["primary"])
+        (top if role.endswith("+") else body).append(f'<g fill="{c_}" color="{c_}">{el2}</g>')
     mask_attr = ""
     if m.cuts:
         defs += (f'<mask id="{uid}m" maskUnits="userSpaceOnUse" x="-5" y="-5" width="{m.w + 10}" height="{m.h + 10}">'
@@ -330,6 +393,8 @@ def wordmark_parts(c: Concept, name: str, name_ar: str, colors: dict, x: float, 
     ar = None
     if name_ar:
         ar = text_path(name_ar, c.font_ar, c.weight_ar, size_ar or size * 0.62)
+        if not size_ar and ar.w < 0.5 * (w + extra):  # wide tracked caps: don't let the Arabic line shrink to a caption
+            ar = text_path(name_ar, c.font_ar, c.weight_ar, min(size * 0.85, size * 0.62 * 0.5 * (w + extra) / max(ar.w, 1)))
         total_w = max(total_w, ar.w)
     def ox(width):
         return x - tp.x0 if align == "left" else x + (total_w - width) / 2 - tp.x0 if align == "center" else x + total_w - width - tp.x0
@@ -405,7 +470,7 @@ def build_svgs(c: Concept, name: str, name_ar: str, initials: str, palette: dict
     # app icon / favicon: mark on a primary (or paper) rounded plate
     plate = palette["primary"]
     cols = _roles(palette, "color")
-    on_plate = {"primary": col.text_on(plate, palette["paper"], palette["ink"]), "accent": palette["accent"]
+    on_plate = {"primary": palette["paper"] if col.contrast(palette["paper"], plate) >= 2.5 else palette["ink"], "accent": palette["accent"]
                 if col.contrast(palette["accent"], plate) >= 1.8 else palette["paper"], "ink": palette["paper"], "secondary": palette["paper"]}
     if c.mark in ("monogram_circle", "monogram_square", "hexagon"):
         on_plate = cols
@@ -422,20 +487,37 @@ def build_svgs(c: Concept, name: str, name_ar: str, initials: str, palette: dict
     return out
 
 
-def concepts_for(name: str, brief: str, pair: dict, n: int = 4, seed_extra: str = "") -> list[Concept]:
-    """n distinct concepts: different marks × wordmark treatments drawn from the brand's type pairing."""
+def concepts_for(name: str, brief: str, pair: dict, n: int = 4, seed_extra: str = "",
+                 alt_pairs: list[dict] | None = None, marks: list[str] | None = None) -> list[Concept]:
+    """n distinct concepts: brief-driven marks (subject marks first, always one monogram) × wordmark
+    treatments from the brand's pairing and the sector's alternative pairings (so type varies too)."""
+    from .brief import LUX_WORDS, TECH_WORDS, words
     base = int(hashlib.md5((name + seed_extra).encode()).hexdigest()[:8], 16)
-    kinds = pick_marks(brief + " " + " ".join(pair.get("moods", [])), n)
-    t = (brief or "").lower()
-    lux = any(k in t for k in ("luxury", "elegant", "premium", "fashion", "jewel", "heritage", "classic"))
-    tech = any(k in t for k in ("tech", "ai", "software", "startup", "digital", "app", "saas"))
+    kinds = list(marks) if marks else pick_marks(brief, max(n, 4), name)
+    for k in ["monogram_square", "orbit", "quarters", "spark", "arch", "monogram_circle"]:
+        if len(kinds) >= max(n, 4):
+            break
+        if k not in kinds:
+            kinds.append(k)
+    if seed_extra and len(kinds) > 1:  # a new variation starts somewhere else in the list
+        r = base % len(kinds)
+        kinds = kinds[r:] + kinds[:r]
+    if n >= 3 and not any(k in MONOGRAMS for k in kinds[:n]):
+        kinds[min(n, len(kinds)) - 1] = "monogram_circle"
+    ws = set(words(brief))
+    lux = bool(ws & LUX_WORDS)
+    tech = bool(ws & TECH_WORDS)
+    alts = [a for a in (alt_pairs or []) if a.get("head") != pair["head"]]
+    alt = alts[0] if alts else {"head": pair["body"] if pair["body"] != pair["head"] else "Manrope", "head_weight": 700}
+    alt2 = alts[1] if len(alts) > 1 else pair
+    hw = pair.get("head_weight", 700)
     treatments = [
-        {"font": pair["head"], "weight": pair.get("head_weight", 700), "case": "upper" if lux else "lower" if tech else "title",
+        {"font": pair["head"], "weight": hw, "case": "upper" if lux else "lower" if tech else "title",
          "tracking": 0.12 if lux else -0.02, "dot": False},
-        {"font": pair["head"], "weight": min(900, pair.get("head_weight", 700) + 100), "case": "lower" if not lux else "title",
-         "tracking": -0.03, "dot": True},
-        {"font": pair["body"] if pair["body"] != pair["head"] else "Manrope", "weight": 700, "case": "upper", "tracking": 0.16, "dot": False},
-        {"font": pair["head"], "weight": 600 if pair.get("head_weight", 700) >= 600 else 500, "case": "title", "tracking": 0.0, "dot": False},
+        {"font": alt["head"], "weight": alt.get("head_weight", 700), "case": "title" if not tech else "lower",
+         "tracking": 0.0 if not lux else 0.08, "dot": not lux},
+        {"font": pair["head"], "weight": min(900, hw + 100), "case": "upper", "tracking": 0.14, "dot": False},
+        {"font": alt2["head"], "weight": alt2.get("head_weight", 700), "case": "title", "tracking": -0.01, "dot": False},
     ]
     out = []
     for i in range(n):

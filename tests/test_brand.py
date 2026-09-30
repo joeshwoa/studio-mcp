@@ -99,3 +99,58 @@ def test_brand_create_apply_guidelines(tmp_path):
     r5 = call("design_create", {"template": "quote", "brand": "test-bakery", "size": "ig_square", "out": str(tmp_path),
                                 "content": {"quote": "Best bread in town", "author": "Ali"}})
     assert "brand Test Bakery" in r5.summary
+
+
+# ---- brief-driven direction (regression: every brand used to get the same blue tech kit) ----------
+
+from studio.depts.brand import brief as BR  # noqa: E402
+
+BRIEFS = [
+    ("Qahwa House", "specialty coffee shop in Maadi, Cairo; warm, crafted, modern", "coffee", "coffee", {"cup", "bean"}),
+    ("Cominde", "AI software studio building apps for startups", "", "tech", {"spark", "bubble"}),
+    ("Nile Bites", "Egyptian street food, warm and playful", "", "food", {"bowl"}),
+    ("Shifa Clinic", "family dental clinic in Heliopolis, calm and trustworthy", "", "health", {"plus", "heart"}),
+    ("Masar Capital", "investment advisory for SMEs", "finance", "finance", {"shield", "bars"}),
+    ("Bloom Kids", "kindergarten and nursery in New Cairo, playful", "", "kids", {"sun", "heart"}),
+]
+
+
+@pytest.mark.parametrize("name,brief,sector,want,subject", BRIEFS)
+def test_direction_reads_the_brief(name, brief, sector, want, subject):
+    d = BR.direction(name, brief, sector)
+    assert d["sector"] == want
+    assert subject & set(d["marks"][:3])
+
+
+def test_whole_word_matching_no_false_hits():
+    # "Cairo"/"Maadi" contain "ai", "crafted" contains "art", "approach" contains "app"
+    d = BR.direction("X", "a crafted approach in Maadi, Cairo")
+    assert d["sector"] not in ("tech", "creative")
+    assert BR.hits("roastery and espresso bar", ["roast*", "espresso"]) == 2
+
+
+def test_contrasting_briefs_get_different_kits():
+    kits = [K.make_kit(n, brief=b, sector=s) for n, b, s, *_ in BRIEFS]
+    prim = {k["colors"]["primary"] for k in kits}
+    pairs = {k["fonts"]["pair"] for k in kits}
+    assert len(prim) == len(kits), prim
+    assert len(pairs) >= 5, pairs
+    coffee = kits[0]
+    r, g, b = col.hex_rgb(coffee["colors"]["primary"])
+    assert r > b, "coffee brand should be warm"
+
+
+def test_same_sector_varies_by_name_and_base_color_wins():
+    a = K.make_kit("Bean There", sector="coffee")["colors"]["primary"]
+    names = {K.make_kit(n, sector="coffee")["colors"]["primary"] for n in ("Bean There", "Roast Lab", "Kahwa", "Mocha Street", "Fincan")}
+    assert len(names) >= 2 and a in names
+    assert K.make_kit("Bean There", sector="coffee", base_color="#123456")["colors"]["primary"] == "#123456"
+
+
+def test_concepts_include_subject_and_monogram():
+    pair = dict(next(p for p in __import__("studio.depts.design.fonts", fromlist=["PAIRS"]).PAIRS if p["id"] == "cafe"))
+    cs = L.concepts_for("Qahwa House", "specialty coffee shop", pair, 4)
+    kinds = [c.mark for c in cs]
+    assert "cup" in kinds or "bean" in kinds
+    assert any(k in L.MONOGRAMS for k in kinds)
+    assert len(set(kinds)) == 4

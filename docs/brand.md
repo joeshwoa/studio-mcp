@@ -36,10 +36,18 @@ studio brand_apply '{"brand":"cominde","contact":{"name":"Joshua George","title"
   luxury, editorial, heritage, bold, geometric, creative, news, egypt-classic) using Cairo, Tajawal,
   Almarai, IBM Plex Sans Arabic, Noto Kufi/Naskh, Readex Pro, El Messiri, Amiri, Alexandria, Changa,
   Reem Kufi, Aref Ruqaa, Baloo Bhaijaan 2… with Latin partners. Any Google font can be set.
+* **Reading the brief** — `brand/brief.py` matches whole words (so "Cairo" is not "ai") against 17
+  sectors (coffee, food, tech, finance, health, wellness, eco, education, kids, property, travel, luxury,
+  heritage, sport, creative, logistics, community; Arabic keywords too). The sector gives a curated
+  palette family (3–4 per sector; the brand name seeds which one, mood words like warm/calm/premium
+  re-rank them), the type pairings that suit it and its subject marks. `sector=` forces it,
+  `base_color=` overrides the palette. The chosen direction is saved in `brand.json → direction`.
 * **Logos** — wordmarks are shaped with HarfBuzz (correct Arabic joining, kerning, ligatures) and
   outlined with fontTools, so SVGs contain paths only (no font dependency). Marks are geometric
   constructions on a 100-unit grid (monograms in circle/square/hexagon, letter-split, quarters,
-  orbit, stack, petals, arch, spark, chevrons, leaf, wave), chosen by sector/personality, knock-outs
+  orbit, stack, petals, arch, spark, chevrons, leaf, wave, star8, sun) plus subject marks (cup, bean,
+  bowl, drop, roof, book, shield, bars, bolt, heart, plus, pyramid, bubble, pin, sprout), chosen from
+  the brief's sector — every concept set mixes subject marks with one lettermark, knock-outs
   via SVG masks so every variant stays transparent. Suite: horizontal & stacked lockups (bilingual
   when `name_ar` is set), icon, wordmark, Arabic wordmark, monogram — each in colour / reversed /
   mono black / mono white — plus app icon, favicon.svg/.ico and PNGs 16/32/48/180/192/512 + 2000 px lockups.

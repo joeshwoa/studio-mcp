@@ -15,6 +15,7 @@ from ...core.result import Result, ToolError
 from ..design import color as col
 from ..design import fonts as F
 from ..design.engine import with_browser
+from . import brief as BR
 from . import kit as K
 from . import logo as L
 
@@ -75,7 +76,10 @@ def brand_create(name: str, brief: str = "", sector: str = "", audience: str = "
     Returns previews to LOOK at: concept sheet, palette, typography, logo suite.
 
     personality: e.g. "modern, friendly, trustworthy". base_color: optional hex/name (else derived from
-    sector/personality). harmony: auto | complementary | analogous | triadic | split | tetradic | monochrome.
+    sector/personality). The brief is read whole-word into a sector (coffee, food, tech, finance, health,
+    wellness, eco, education, kids, property, travel, luxury, heritage, sport, creative, logistics,
+    community) → a curated palette for that category (varied per brand name), fitting type pairings and
+    subject marks (e.g. coffee → cup, bean, arch; finance → shield, bars). Pass sector= to force it. harmony: auto | complementary | analogous | triadic | split | tetradic | monochrome.
     font_pair: modern, corporate, friendly, playful, luxury, editorial, heritage, bold, geometric, creative,
     news, egypt-classic (see design_catalog pairs). choose: concept built into the suite (change later with
     brand_choose_logo). Logos are typographic/geometric — honest starting points a designer would refine."""
@@ -86,7 +90,8 @@ def brand_create(name: str, brief: str = "", sector: str = "", audience: str = "
     pers = _list(personality)
     kit = K.make_kit(name, brief, sector, audience, pers, name_ar, tagline, tagline_ar, "", base_color, harmony, font_pair)
     pair = kit.pop("_pair")
-    cs = L.concepts_for(name, " ".join([brief, sector, " ".join(pers)]), pair, max(1, min(6, concepts)))
+    cs = L.concepts_for(name, " ".join([brief, sector, " ".join(pers)]), pair, max(1, min(6, concepts)),
+                        alt_pairs=pair.get("_alts"), marks=pair.get("_marks"))
     kit["logo"] = {"concepts": [c.to_dict() for c in cs]}
     kit["_dir"] = str(d)
     _choose(kit, choose)
@@ -101,7 +106,8 @@ def brand_create(name: str, brief: str = "", sector: str = "", audience: str = "
     if bad:
         warn.append("some core text pairs fail WCAG: " + ", ".join(f"{p['fg']}/{p['bg']} {p['ratio']}" for p in bad))
     return Result(
-        f"Brand kit '{name}' ({slug}) created: primary {c['primary']}, secondary {c['secondary']}, accent {c['accent']} "
+        f"Brand kit '{name}' ({slug}) created — read as sector '{kit['direction']['sector']}'"
+        f"{' (+' + ', '.join(kit['direction']['also']) + ')' if kit['direction']['also'] else ''}, palette '{kit['direction']['palette']}': primary {c['primary']}, secondary {c['secondary']}, accent {c['accent']} "
         f"({kit['palette']['harmony']}); type {kit['fonts']['head']}/{kit['fonts']['body']} + {kit['fonts']['head_ar']}/{kit['fonts']['body_ar']}; "
         f"{len(cs)} logo concepts, suite built for {choose}. Voice notes are rule-based starters — refine them.",
         files=[str(d / "brand.json"), str(d / "logo")] + [str(s) for s in sheets], previews=[str(s) for s in sheets],
@@ -109,6 +115,7 @@ def brand_create(name: str, brief: str = "", sector: str = "", audience: str = "
         next_steps=["LOOK at concepts.png and let the user pick; then brand_choose_logo {\"brand\": \"%s\", \"concept\": \"c2\"}" % slug,
                     "tweak with brand_update (colors/fonts/tagline/voice) or brand_logo_concepts for fresh ideas",
                     "brand_guidelines → PDF book; brand_apply → social/cover/card/letterhead/signature starter set",
+                    "wrong sector read? pass sector= explicitly (e.g. coffee, food, tech, finance, health, wellness, eco, education, kids, property, travel, luxury, heritage, sport, creative, logistics, community) or base_color=",
                     "use it anywhere: design_create {..., \"brand\": \"%s\"}" % slug],
         data={"slug": slug, "colors": c, "fonts": kit["fonts"], "concepts": [x.to_dict() for x in cs],
               "logo_files": kit["logo"]["files"]})
@@ -117,8 +124,10 @@ def brand_create(name: str, brief: str = "", sector: str = "", audience: str = "
 @tool("brand", network=True)
 def brand_logo_concepts(brand: str, count: int = 4, marks: list | str = "", fonts: list | str = "", variation: str = "") -> Result:
     """Generate a fresh set of logo concepts for a saved brand (keeps the current chosen logo until you
-    call brand_choose_logo). marks: optional list from monogram_circle, monogram_square, monogram_letter,
-    letter_split, hexagon, quarters, orbit, stack, petals, arch, spark, chevrons, leaf, wave.
+    call brand_choose_logo). marks: optional list — lettermarks monogram_circle, monogram_square,
+    monogram_letter, letter_split, hexagon, shield; geometry quarters, orbit, stack, petals, arch, spark,
+    chevrons, leaf, wave, star8, sun; subject marks cup, bean, bowl, drop, roof, book, bars, bolt, heart,
+    plus, pyramid, bubble, pin, sprout. Default: picked from the brief's sector.
     fonts: optional Latin families to try for the wordmark. variation: any text → different random seed.
     Returns the concept sheet to LOOK at."""
     kit = K.load(brand)
@@ -126,8 +135,11 @@ def brand_logo_concepts(brand: str, count: int = 4, marks: list | str = "", font
     pair = {**pair, "head": kit["fonts"]["head"], "body": kit["fonts"]["body"], "head_ar": kit["fonts"]["head_ar"],
             "head_weight": kit["fonts"].get("head_weight", 700)}
     n = max(1, min(8, count))
+    dr = kit.get("direction") or {}
+    alts = [dict(p) for pid in dr.get("pairs", [])[1:] for p in F.PAIRS if p["id"] == pid]
     cs = L.concepts_for(kit["name"], " ".join([kit.get("brief", ""), kit.get("sector", "")] + kit.get("personality", [])),
-                        pair, n, seed_extra=variation or str(len(kit["logo"].get("concepts", []))))
+                        pair, n, seed_extra=variation or str(len(kit["logo"].get("concepts", []))),
+                        alt_pairs=alts, marks=dr.get("marks"))
     mk = _list(marks)
     bad = [m for m in mk if m not in L.MARK_KINDS]
     if bad:
@@ -197,9 +209,22 @@ def brand_palette(base_color: str = "", brief: str = "", harmony: str = "auto", 
     {"accent": "#..."} overrides individual roles. Returns a palette sheet to LOOK at."""
     over = _json(colors, "colors") or {}
     kit = K.load(brand) if brand else None
-    base = col.norm(base_color) if base_color else (kit["colors"]["primary"] if kit and not brief else col.base_from_brief(brief))
     mood = " ".join([brief] + ((kit.get("personality", []) + [kit.get("sector", "")]) if kit else []))
-    pal = col.build_palette(base, harmony, mood)
+    if base_color:
+        base = col.norm(base_color)
+        pal = col.build_palette(base, harmony, mood)
+    elif kit and not brief:
+        base = kit["colors"]["primary"]
+        pal = col.build_palette(base, harmony, mood, fixed={k: kit["colors"][k] for k in ("secondary", "accent", "paper")}
+                                if harmony == "auto" else None)
+    else:  # a brief → the sector's curated palette (different seeds via the brand name)
+        dr = BR.direction(kit["name"] if kit else "", brief, kit.get("sector", "") if kit else "")
+        cp = dr["palette"]
+        base = cp["primary"]
+        pal = col.build_palette(base, dr["harmony"] if harmony == "auto" else harmony, mood,
+                                fixed={k: cp[k] for k in ("secondary", "accent", "paper")} if harmony == "auto" else None)
+        if harmony == "auto":
+            pal["harmony"] = f"curated: {cp['name']} ({dr['sector']})"
     for k, v in over.items():
         if k in pal["roles"]:
             pal["roles"][k] = col.norm(v)

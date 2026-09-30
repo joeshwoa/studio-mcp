@@ -27,7 +27,12 @@ from ...core.result import ToolError
 from ..design import color as col
 from ..design import fonts as F
 from ..design.engine import with_browser
+from . import brief as BR
 from . import logo as L
+
+
+def words_of(text: str) -> list[str]:
+    return BR.words(text)
 
 # ------------------------------------------------------------------------------------------ voice
 TRAITS = {
@@ -323,10 +328,22 @@ def make_kit(name: str, brief: str = "", sector: str = "", audience: str = "", p
              harmony: str = "auto", pair: str = "", fonts: dict | None = None, slug: str = "") -> dict:
     personality = [p.strip() for p in (personality or []) if p.strip()]
     text = " ".join([brief, sector, audience, " ".join(personality)])
-    base = col.norm(base_color) if base_color else col.base_from_brief(text)
-    pal = col.build_palette(base, harmony, text)
+    dr = BR.direction(name, brief, sector, audience, personality)
+    if base_color:  # the client's colour wins; the rest is derived from it
+        base = col.norm(base_color)
+        pal = col.build_palette(base, harmony, text)
+    else:
+        cp = dr["palette"]
+        base = cp["primary"]
+        pal = col.build_palette(base, dr["harmony"] if harmony == "auto" else harmony, text,
+                                fixed={k: cp[k] for k in ("secondary", "accent", "paper")})
+        pal["harmony"] = f"curated: {cp['name']} ({dr['sector']})"
     pr = next((p for p in F.PAIRS if p["id"] == pair), None) if pair else None
-    pr = dict(pr) if pr else F.pair_for(personality + sector.split() + brief.lower().split())
+    if not pr:
+        pr = next((p for p in F.PAIRS if p["id"] == dr["pairs"][0]), None) or F.pair_for(personality + words_of(text))
+    pr = dict(pr)
+    pr["_alts"] = [dict(p) for pid in dr["pairs"][1:] for p in F.PAIRS if p["id"] == pid]
+    pr["_marks"] = dr["marks"]
     fnt = {"head": pr["head"], "body": pr["body"], "head_ar": pr["head_ar"], "body_ar": pr["body_ar"],
            "head_weight": pr.get("head_weight", 700), "pair": pr["id"]}
     for k, v in (fonts or {}).items():
@@ -337,5 +354,7 @@ def make_kit(name: str, brief: str = "", sector: str = "", audience: str = "", p
             "brief": brief, "sector": sector, "audience": audience, "personality": personality, "language": lang,
             "initials": L.initials_of(name),
             "colors": pal["roles"], "palette": {"harmony": pal["harmony"], "ramps": pal["ramps"], "pairs": pal["pairs"], "base": base},
+            "direction": {"sector": dr["sector"], "also": dr["also"], "palette": dr["palette"]["name"],
+                          "alternatives": [p["name"] for p in dr["palettes"][1:]], "marks": dr["marks"], "pairs": dr["pairs"]},
             "fonts": fnt, "voice": voice_for(name, personality, audience, sector, tagline), "logo": {}, "version": 1,
             "_pair": pr}

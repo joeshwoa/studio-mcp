@@ -197,7 +197,7 @@ def base_from_brief(text: str) -> str:
     t = (text or "").lower()
     best, hits = None, 0
     for keys, L, C, H in MOOD_HUES:
-        n = sum(1 for k in keys if k in t)
+        n = sum(1 for k in keys if re.search(r"(?<!\w)" + re.escape(k), t))
         if n > hits:
             best, hits = (L, C, H), n
     if not best:  # deterministic from text
@@ -216,7 +216,7 @@ HARMONIES = {
 }
 
 
-def build_palette(base: str, harmony: str = "auto", mood: str = "") -> dict:
+def build_palette(base: str, harmony: str = "auto", mood: str = "", fixed: dict | None = None) -> dict:
     """A full brand palette from one base colour.
 
     Returns roles: primary, secondary, accent, ink (text), paper (background), surface, muted, line,
@@ -240,11 +240,15 @@ def build_palette(base: str, harmony: str = "auto", mood: str = "") -> dict:
     accent = from_oklch(0.72 if harmony != "monochrome" else min(0.85, L + 0.25), acc_C, acc_h)
     if contrast(accent, primary) < 1.6:
         accent = from_oklch(0.8, acc_C, acc_h)
+    fixed = {k: norm(v) for k, v in (fixed or {}).items() if v and k in ("secondary", "accent", "paper")}
+    secondary = fixed.get("secondary", secondary)
+    accent = fixed.get("accent", accent)
     # neutrals tinted with the primary hue
     ink = from_oklch(0.2, min(0.025, C * 0.25), H)
     paper = from_oklch(0.975, min(0.012, C * 0.1), (H + 40) % 360 if "warm" in mood or "heritage" in mood else H)
     if any(k in mood for k in ("luxury", "heritage", "traditional", "food", "craft", "warm", "cafe", "coffee")):
         paper = from_oklch(0.96, 0.018, 80)  # warm cream
+    paper = fixed.get("paper", paper)
     surface = from_oklch(0.93, min(0.02, C * 0.2), H)
     muted = ensure_contrast(from_oklch(0.5, min(0.03, C * 0.3), H), paper, 4.6)
     line = from_oklch(0.87, min(0.02, C * 0.2), H)
