@@ -5,7 +5,15 @@ maqam quarter-tones (e.g. 63.5 = E half-flat above middle C's octave) render exa
 from __future__ import annotations
 
 import numpy as np
-from scipy.signal import butter, sosfilt
+
+
+def _sig():
+    try:
+        from scipy.signal import butter, sosfilt
+    except ImportError as e:  # the audio extra is not installed
+        from ...core.result import MissingTool
+        raise MissingTool("scipy is not installed (music & SFX filters).", "pip install 'studio-mcp[audio]' or: pip install scipy") from e
+    return butter, sosfilt
 
 SR = 44100
 
@@ -36,14 +44,17 @@ def env_adsr(n: int, a: float, d: float, s: float, r: float, hold: float) -> np.
 
 def lp(x: np.ndarray, hz_: float, order: int = 2) -> np.ndarray:
     hz_ = min(hz_, SR / 2 * 0.95)
+    butter, sosfilt = _sig()
     return sosfilt(butter(order, hz_, "lowpass", fs=SR, output="sos"), x).astype(np.float32)
 
 
 def hp(x: np.ndarray, hz_: float, order: int = 2) -> np.ndarray:
+    butter, sosfilt = _sig()
     return sosfilt(butter(order, hz_, "highpass", fs=SR, output="sos"), x).astype(np.float32)
 
 
 def bp(x: np.ndarray, lo: float, hi: float, order: int = 2) -> np.ndarray:
+    butter, sosfilt = _sig()
     return sosfilt(butter(order, [lo, min(hi, SR / 2 * 0.95)], "bandpass", fs=SR, output="sos"), x).astype(np.float32)
 
 

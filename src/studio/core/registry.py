@@ -56,6 +56,7 @@ def tool(dept: str, *, network: bool = False, spends: bool = False, installs: bo
 
 
 _loaded = False
+LOAD_ERRORS: dict[str, str] = {}   # module → why it could not be imported (shown by studio_doctor)
 
 
 def load_all() -> dict[str, ToolSpec]:
@@ -63,8 +64,11 @@ def load_all() -> dict[str, ToolSpec]:
     global _loaded
     if not _loaded:
         from studio import depts
-        for m in pkgutil.walk_packages(depts.__path__, depts.__name__ + "."):
-            importlib.import_module(m.name)
+        for m in pkgutil.walk_packages(depts.__path__, depts.__name__ + ".", onerror=lambda n: LOAD_ERRORS.setdefault(n, "import failed")):
+            try:
+                importlib.import_module(m.name)
+            except ImportError as e:  # an optional extra is missing: keep every other department working
+                LOAD_ERRORS[m.name] = f"{type(e).__name__}: {e}"
         _loaded = True
     return TOOLS
 

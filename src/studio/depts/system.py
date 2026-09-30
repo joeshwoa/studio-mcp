@@ -36,6 +36,11 @@ def studio_doctor() -> Result:
     lines += [f"  missing  {r['dep']:15} {r['purpose']}  →  {r['install']}" for r in miss]
     ready = {g: all(have(k) for k in ks) for g, ks in GROUPS.items()}
     lines.append("")
+    from ..core.registry import LOAD_ERRORS
+    if LOAD_ERRORS:
+        lines.append("")
+        lines.append("Parts not loaded (install the extra, e.g. pip install 'studio-mcp[all]'):")
+        lines += [f"  {m.replace('studio.depts.', '')}: {err}" for m, err in LOAD_ERRORS.items()]
     lines.append("Departments ready: " + ", ".join(f"{g}={'yes' if v else 'partly'}" for g, v in ready.items()))
     return Result("\n".join(lines), data={"home": str(studio_home()), "deps": rows, "ready": ready},
                   next_steps=["studio_install with the group the user needs (after they agree to the download sizes)"] if miss else [])
