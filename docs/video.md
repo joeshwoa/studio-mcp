@@ -68,3 +68,28 @@ GUI (not installed in this container) — try `open_in_app` on the Mac.
 - Needs: ffmpeg (with libass, xfade, lut3d; vid.stab optional), melt (MLT) for the project check —
   on Linux without a display melt's Qt module needs `xvfb-run` (used automatically); on macOS
   `brew install mlt` works directly. OpenCV (`opencv-python-headless`) for reframe/thumbnails.
+
+## Pro tools (Premiere/Resolve-level workflows)
+
+| Tool | What it does |
+|---|---|
+| `video_scene_detect` | Shot boundaries (ffmpeg scene score in numpy, PySceneDetect when installed) + per-shot sharpness, motion, hand-held shake, exposure, faces, audio level; labelled shot-list sheet + cut-score plot |
+| `video_select_takes` | Ranks clips or the shots inside them (want = best/sharp/stable/faces/talking/audio/action/calm/broll); ready-to-paste `{"src","in","out"}` picks |
+| `video_beats` | Tempo + beats + downbeats (spectral flux → autocorrelation tempo → DP beat tracker → downbeats from kick energy + chroma change); librosa used if installed. Plot + Audacity labels |
+| `video_cut_to_beats` / `"cut_to_beats"` | Montage where every cut lands on a beat (`every`: 1, 2, 4 or a pattern like [4,2,2]); also accepted as a key in any `video_edit` timeline |
+| `video_transcript` | Indexed transcript (`[mm:ss | w12–w30] …`, pauses, `{fillers}`), .md + words .json |
+| `video_transcript_edit` | Descript-style: remove/keep by quoted text, word indices or times (keep reorders); fillers EN + Egyptian/MSA AR only when standalone; silences shortened; cut points snapped to quiet 10 ms; 15 ms audio crossfades (`audio_crossfade` clip key); cut list .md/.json, CMX3600 .edl; re-transcribes the result and auto-repairs cuts where a removed word is still audible |
+| `video_auto_edit` | Brief → voice (TTS / VO / talking head) → shots at the style's pace → b-roll from own footage and/or free stock (on-topic, right orientation, licences kept) → music (file / stock / generated) ducked, cuts on the beat → captions, title, lower thirds, CTA → timeline JSON + MP4 + .kdenlive + EDIT-REPORT.md + storyboard + QC |
+| `video_export_interchange` | FCPXML 1.9, OpenTimelineIO (.otio, hand-written Timeline.1 JSON; validated with `opentimelineio` when installed) and CMX3600 EDL from any timeline; HOW-TO-OPEN.md for Resolve / FCP / Premiere |
+| `video_color_match` | Reinhard LAB transfer to a reference clip/still, baked to a 33³ .cube (reusable in Resolve/Premiere/Kdenlive) and applied with lut3d; before/after/reference sheet |
+| `video_auto_color` | White balance (near-neutral pixels), exposure, black/white points → .cube + before/after |
+| `video_qc` | PASS/WARN/FAIL delivery report: black, frozen, flash/strobe (≤3/s), letterbox, clipping, LUFS/LRA/true peak, silence gaps, stream alignment, resolution/fps/codec/pix_fmt/faststart, caption safe zone, duration/size limits per platform |
+
+Opening in a pro NLE: DaVinci Resolve › File › Import › Timeline → the `.fcpxml` (or `.otio`); Final Cut Pro › File ›
+Import › XML; Premiere › File › Import → the `.edl` (V1 + audio). Grades, overlay transforms, captions and ducking do
+not travel in these formats (captions: import the `.srt`; grades: the `.cube`).
+
+Known limits: Whisper word times are ±0.1–0.3 s, so removing a single word inside continuous speech can leave a
+syllable — `verify` re-transcribes and repairs, and warns when it cannot. Downbeats are an estimate (4/4 assumed).
+Keyless stock (Wikimedia, NASA, Internet Archive) has small catalogues — add free Pexels/Pixabay keys for better b-roll;
+`broll_queries` (English) are needed for Arabic scripts. Flash detection is luminance-only (no red-flash rule).

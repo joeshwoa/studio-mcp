@@ -182,27 +182,56 @@ def _out_target(out: str, project: str, name: str) -> tuple[Path, str]:
 def render_page(page: Path, *, name: str, width: int, height: int, fps: float, duration: float | None,
                 transparent: bool, formats, project: str, out: str, warnings: list[str],
                 summary: str, data: dict | None = None, background: str = "#000000", keep_html: bool = True,
-                backdrop: str | None = None, workers: int = 0, grain: float | None = None) -> Result:
-    fmts = _formats(formats, transparent)
+                backdrop: str | None = None, workers: int = 0, grain: float | None = None, motion_blur: int = 0,
+                shutter: float = 180.0, post: dict | None = None, keyframes: int = 0, extra_files: list[str] | None = None) -> Result:
     work = engine.scratch_dir()
     try:
-        r = engine.render_frames(page, work / "frames", width, height, fps, duration, transparent, workers=workers)
+        r = engine.render_frames(page, work / "frames", width, height, fps, duration, transparent, workers=workers,
+                                 motion_blur=motion_blur, shutter=shutter, post=post)
+        return deliver_frames(r, work / "frames", page=page if keep_html else None, name=name, width=width, height=height,
+                              fps=fps, transparent=transparent, formats=formats, project=project, out=out, warnings=warnings,
+                              summary=summary, data=data, background=background, backdrop=backdrop, grain=grain,
+                              keyframes=keyframes, extra_files=extra_files)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def _unique_dir(parent: Path, stem: str) -> Path:
+    """parent/stem, parent/stem-2 … (config.unique_path would append a bare '.' for an empty extension)."""
+    p, n = parent / stem, 2
+    while p.exists():
+        p, n = parent / f"{stem}-{n}", n + 1
+    return p
+
+
+def deliver_frames(r: dict, frames_dir: Path, *, page: Path | None, name: str, width: int, height: int, fps: float,
+                   transparent: bool, formats, project: str, out: str, warnings: list[str], summary: str,
+                   data: dict | None = None, background: str = "#000000", backdrop: str | None = None,
+                   grain: float | None = None, keyframes: int = 0, extra_files: list[str] | None = None) -> Result:
+    """Encode a rendered PNG sequence (r = {frames, duration, console, grain}) into every format, make the
+    timecoded contact sheet + key frames, measure it, and build the Result (shared by every engine)."""
+    keep_html = page is not None
+    fmts = _formats(formats, transparent)
+    if True:
         frames = r["frames"]
         odir, stem = _out_target(out, project, name)
         g = (5.0 if r.get("grain") else 0.0) if grain is None else grain
         files = []
         for f in fmts:
-            dest = unique_path(odir, stem + "-frames", "") if f == "png" else unique_path(odir, stem, f)
-            engine.encode(work / "frames", fps, f, dest, transparent, background=background, grain=g)
+            dest = _unique_dir(odir, stem + "-frames") if f == "png" else unique_path(odir, stem, f)
+            engine.encode(frames_dir, fps, f, dest, transparent, background=background, grain=g)
             files.append(str(dest))
         sheet = unique_path(odir, stem + "-sheet", "png")
-        engine.frames_sheet(frames, sheet, transparent, backdrop=backdrop)
+        engine.frames_sheet(frames, sheet, transparent, backdrop=backdrop, fps=fps)
         stats = engine.frame_stats(frames, transparent)
         if keep_html:
             master = unique_path(odir, stem + "-source", "html")
             shutil.copy2(page, master)
             files.append(str(master))
+        files += list(extra_files or [])
         res = Result(summary, files=files, previews=[str(sheet)], warnings=list(warnings))
+        for kf in key_frames(frames, odir, stem, keyframes, fps, transparent):
+            res.previews.append(kf)
         for f in files:
             if f.endswith((".mp4", ".webm", ".mov", ".gif")):
                 pr = qc.probe(f)
@@ -223,8 +252,28 @@ def render_page(page: Path, *, name: str, width: int, height: int, fps: float, d
         if keep_html:
             res.next_steps.append("edit the -source.html (plain HTML/CSS/JS) and re-render it with motion_render_html for full control")
         return res
-    finally:
-        shutil.rmtree(work, ignore_errors=True)
+
+
+def key_frames(frames: list[Path], odir: Path, stem: str, n: int, fps: float, alpha: bool) -> list[str]:
+    """Save n full frames (≤1280 px, alpha over a checkerboard) at telling moments: after the build-in
+    (~30%), the hold (~60%) and the end (~92%) — what a reviewer would scrub to."""
+    from PIL import Image
+    out = []
+    if n <= 0 or not frames:
+        return out
+    at = [0.3, 0.6, 0.92, 0.12, 0.8][:n]
+    for a in at:
+        i = min(len(frames) - 1, int(a * (len(frames) - 1)))
+        im = Image.open(frames[i]).convert("RGBA")
+        im.thumbnail((1280, 1280))
+        if alpha:
+            base = engine._checker(im.size, 16)
+            base.alpha_composite(im)
+            im = base
+        dest = unique_path(odir, f"{stem}-frame-{engine.timecode(i / fps, fps).replace(':', '')}", "png")
+        im.convert("RGB").save(dest)
+        out.append(str(dest))
+    return out
 
 
 def render_template(template: str, params: dict, *, size: str, fps: int, duration: float, transparent: bool,
@@ -573,6 +622,22 @@ def motion_templates() -> Result:
         "motion_counter": "animated numbers / stat rows",
         "motion_infographic": "bars | columns | donut — animated charts from data",
         "motion_render_html": "render any HTML/CSS/GSAP/canvas animation deterministically",
+        "motion_compose": "PRO: JSON scene spec → GSAP composition (layers, 40 presets, transitions, camera, charts, Lottie, 3D)",
+        "motion_lottie": "PRO: render/recolour/retime Lottie (.json/.lottie) frame-exactly",
+        "motion_3d": "PRO: three.js 3D titles (Arabic ok), logos, product turntables, devices, particles, abstract",
+        "motion_blender": "PRO: Blender (Cycles/EEVEE) photoreal 3D title/logo/turntable/abstract + editable .blend",
+        "motion_remotion": "PRO: render an existing Remotion (React) project (licence check)",
+        "motion_plan": "PRO: router — which engine/tool/template for a brief, with a spec skeleton",
     }
-    return Result("\n".join(f"{k}: {v}" for k, v in cat.items()) + "\n\nEvery template takes brand=<slug>, size "
-                  "(16:9, 9:16, 1:1, 4:5, 4k, WxH), fps, colors, fonts, formats (mp4, webm, mov, gif, png).", data=cat)
+    pro = {}
+    try:
+        from .presets import TEMPLATES
+        pro = {k: v[1] + "  — fields: " + (v[0].__doc__ or "").strip().replace("\n", " ") for k, v in TEMPLATES.items()}
+    except Exception:
+        pass
+    txt = "\n".join(f"{k}: {v}" for k, v in cat.items())
+    if pro:
+        txt += "\n\nPro templates — motion_compose(template=<name>, fields={…}); preview=true for quick stills:\n" + "\n".join(
+            f"{k}: {v}" for k, v in pro.items())
+    return Result(txt + "\n\nEvery template takes brand=<slug>, size (16:9, 9:16, 1:1, 4:5, 4k, WxH), fps, colors, fonts, "
+                  "formats (mp4, webm, mov, gif, png).", data={**cat, "pro_templates": pro})

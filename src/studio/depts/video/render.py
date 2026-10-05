@@ -203,6 +203,11 @@ def render(spec: dict, *, project: str, out: str, name: str, base_dir: Path | No
     warnings: list[str] = []
     data: dict = dict(extra_data or {})
     try:
+        if spec.get("cut_to_beats"):   # snap clip lengths to the music's beats (pro_beats)
+            from .pro_beats import apply_cut_to_beats
+            spec, cinfo = apply_cut_to_beats(spec, base_dir)
+            warnings += cinfo.pop("warnings", [])
+            data["cut_to_beats"] = cinfo
         tl = TL.normalize(spec, assets, base_dir, brand)
         warnings += tl.warnings
         bcol, bfont = brand_bits(spec.get("brand", brand))

@@ -78,6 +78,9 @@ DEPS: dict[str, Dep] = {d.key: d for d in [
     Dep("mido", "py", "MIDI files (editable master of generated music)", pip="mido", module="mido"),
     Dep("httpx", "py", "HTTP client for AI backends", pip="httpx", module="httpx"),
     Dep("mflux", "py", "FLUX image generation on Apple Silicon (MLX, local)", pip="mflux", module="mflux", size="6–12 GB model"),
+    Dep("node", "bin", "Node.js + npx for motion_remotion (optional)", brew="node", apt="nodejs npm", bins=["node"], size="80 MB"),
+    Dep("opentimelineio", "py", "strict validation of .otio interchange exports", pip="opentimelineio", module="opentimelineio"),
+    Dep("scenedetect", "py", "PySceneDetect shot detection (optional; numpy fallback built in)", pip="scenedetect", module="scenedetect"),
     Dep("comfyui", "app", "local AI image/video generation server (FLUX, SDXL, LTX-Video, Wan)",
         bins=[], size="2 GB + models"),
 ]}

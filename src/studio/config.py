@@ -83,7 +83,7 @@ def output_dir(project: str | None = None, kind: str = "") -> Path:
 
 def unique_path(directory: Path, stem: str, ext: str) -> Path:
     """Never overwrite: stem.ext, stem-2.ext, stem-3.ext …"""
-    ext = ext if ext.startswith(".") else "." + ext
+    ext = "" if not ext else (ext if ext.startswith(".") else "." + ext)   # "" → a folder name, no trailing dot
     p = directory / f"{stem}{ext}"
     n = 2
     while p.exists():

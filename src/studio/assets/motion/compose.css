@@ -1,0 +1,36 @@
+html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
+body { color: #fff; font-family: var(--font-body), system-ui, sans-serif; -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision; font-kerning: normal; font-feature-settings: "kern" 1, "liga" 1; }
+* { box-sizing: border-box; }
+#comp { position: absolute; inset: 0; overflow: hidden; }
+#world { position: absolute; inset: 0; transform-origin: 50% 50%; }
+.scene { position: absolute; inset: 0; overflow: hidden; transform-origin: 50% 50%; }
+.scene > .bg { position: absolute; inset: 0; overflow: hidden; }
+.scene > .bg > * { position: absolute; }
+.cam { position: absolute; inset: 0; transform-origin: 50% 50%; transform-style: preserve-3d; }
+.L { position: absolute; left: 0; top: 0; }
+.F, .A { position: relative; width: 100%; height: 100%; }
+.C { position: relative; width: 100%; height: 100%; isolation: isolate; }
+.L.text .C { white-space: pre-wrap; overflow-wrap: break-word; }
+.L.text.nowrap .C { white-space: pre; }
+.C img, .C video, .C canvas { display: block; width: 100%; height: 100%; }
+.C > svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.emph { position: relative; }
+.hl { position: absolute; left: -.06em; right: -.06em; top: .16em; bottom: .04em; z-index: -1; border-radius: .06em; }
+[dir=rtl] .hl { top: .3em; bottom: .14em; }
+.uline { position: absolute; left: 0; right: 0; height: .075em; bottom: -.06em; border-radius: .04em; }
+.sw, .sc { display: inline-block; will-change: transform; }
+.swm { display: inline-block; overflow: hidden; vertical-align: bottom; padding: .1em .03em .2em; margin: -.1em -.03em -.2em; }
+.caret { display: inline-block; width: .07em; height: .95em; vertical-align: -0.1em; margin-inline-start: .05em; }
+.shine { position: absolute; inset: 0; pointer-events: none; color: transparent; -webkit-background-clip: text; background-clip: text;
+  background-repeat: no-repeat; background-size: 260% 100%; }
+.shineband { position: absolute; top: -20%; bottom: -20%; width: 35%; pointer-events: none; transform: skewX(-16deg);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.75), transparent); }
+.block { position: absolute; inset: -2% -1%; z-index: 5; transform: scaleX(0); }
+.overlay { position: absolute; inset: 0; pointer-events: none; }
+.vignette { background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,.55) 100%); }
+.leak { position: absolute; border-radius: 50%; mix-blend-mode: screen; filter: blur(calc(var(--u) * 60)); }
+.letterbox { position: absolute; left: 0; right: 0; background: #000; z-index: 90; }
+.tpanel { position: absolute; top: -20%; bottom: -20%; z-index: 80; }
+.chart text { font-family: var(--font-body), sans-serif; }
+.chart .val { font-family: var(--font-head), sans-serif; font-weight: 800; }

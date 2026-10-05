@@ -31,7 +31,9 @@ Timeline (all times in seconds; every key optional except clips):
   "captions": {"auto": true, "language": "auto", "style": "reels"} | {"srt": "subs.srt", "style": "clean"} | {"words": [...]},
   "grade": "teal_orange" | {...},              # whole-programme grade (under titles)
   "fade_in": 0.5, "fade_out": 1.0,             # from/to black (+ audio)
-  "loudness": "youtube" | -14 | null           # master loudness (default: streaming -14 LUFS)
+  "loudness": "youtube" | -14 | null,          # master loudness (default: streaming -14 LUFS)
+  "cut_to_beats": {"music": "song.mp3", "every": 2 | [4, 2, 2], "align": "downbeat"}   # pro_beats: clip lengths
+                                               # snapped to the song's beats, song added as an audio track
 }
 """
 from __future__ import annotations
@@ -82,6 +84,7 @@ class Clip:
     label: str = ""
     generated: bool = False    # rendered by the studio (title card)
     rect_kf: str = ""          # Kdenlive transform keyframes (reframe)
+    ax: float = 0.0            # audio micro-crossfade INTO this clip at a cut (s; e.g. 0.015 for text-based edits)
 
 
 @dataclass
@@ -214,7 +217,8 @@ def normalize(spec: dict, assets_dir: Path, base_dir: Path | None = None, brand:
                       fit=str(c.get("fit", "auto")), zoom=max(1.0, _f(c, "zoom", 1.0)),
                       focus=tuple(c.get("focus", (0.5, 0.5))), trans=C.xfade_name(tname) if tname else "",
                       trans_name=tname, trans_dur=tdur, j=max(0.0, _f(c, "j_cut", 0.0)), l=max(0.0, _f(c, "l_cut", 0.0)),
-                      grade=c.get("grade"), label=c.get("label", ""))
+                      grade=c.get("grade"), label=c.get("label", ""),
+                      ax=min(0.25, max(0.0, _f(c, "audio_crossfade", 0.0))))
         if c.get("title") is not None:
             dur = _f(c, "duration", 3.0)
             from ...core import registry
@@ -620,7 +624,10 @@ def build_dialog_graph(tl: Timeline) -> tuple[list[str], str, str] | None:
     for n, c in enumerate(tl.clips):
         if c.kind != "video" or not c.has_audio or c.mute:
             continue
-        a_in = c.src_in - c.j * c.speed
+        # audio_crossfade: on a plain cut, start this clip's sound `ax` early (pre-roll from the source) and
+        # crossfade it with the end of the previous clip — no clicks, no dip (needs source audio before `in`)
+        ext = c.ax if (n > 0 and c.ax and not c.j and not c.trans_dur and c.src_in / c.speed >= c.ax and c.start >= c.ax) else 0.0
+        a_in = c.src_in - (c.j + ext) * c.speed
         a_out = min(c.src_dur, c.src_out + c.l * c.speed)
         ins += ["-ss", f"{max(0.0, a_in):.4f}", "-t", f"{a_out - a_in + 0.05:.4f}", "-i", str(c.src)]
         k = idx
@@ -632,11 +639,12 @@ def build_dialog_graph(tl: Timeline) -> tuple[list[str], str, str] | None:
         if c.volume_db:
             chain += f",volume={c.volume_db:.2f}dB"
         # fades: transition crossfades, gentle 0.25 s ramps on J/L extensions, 10 ms anti-click elsewhere
-        fin = c.trans_dur if c.trans_dur else (0.25 if c.j else 0.012)
+        fin = c.trans_dur if c.trans_dur else (0.25 if c.j else (ext or 0.012))
         nxt = tl.clips[n + 1] if n + 1 < len(tl.clips) else None
-        fout = (nxt.trans_dur if nxt and nxt.trans_dur else 0.0) or (0.25 if c.l else 0.012)
+        nx_ax = nxt.ax if (nxt and nxt.ax and not nxt.j and not nxt.trans_dur and nxt.kind == "video") else 0.0
+        fout = (nxt.trans_dur if nxt and nxt.trans_dur else 0.0) or (0.25 if c.l else (nx_ax or 0.012))
         chain += f",afade=t=in:st=0:d={fin:.3f},afade=t=out:st={max(0.0, dur_tl - fout):.3f}:d={fout:.3f}"
-        delay = max(0.0, c.start - c.j)
+        delay = max(0.0, c.start - c.j - ext)
         chain += f",adelay={int(round(delay * 1000))}:all=1[a{n}]"
         fl.append(chain)
         labs.append(f"a{n}")
