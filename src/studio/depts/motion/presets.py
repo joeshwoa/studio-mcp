@@ -65,7 +65,7 @@ def kinetic_quote(f: dict, c: Canvas) -> dict:
         punch.append(round(t, 2))
         t += hold
     if f.get("author"):
-        layers.append({"type": "text", "text": ("— " if not rtl else "") + f["author"] + (" —" if rtl else ""), "font": "body", "weight": 600,
+        layers.append({"type": "text", "text": ("— " + f["author"]) if not AR.search(f["author"]) else (f["author"] + " —"), "font": "body", "weight": 600,
                        "size": round(c.s(50)), "color": "muted", "y": "82%" if not c.portrait else "72%", "align": "center",
                        "in": round(t - 1.9, 3), "enter": {"preset": "rise", "duration": 0.8}, "animate": [{"preset": "underline", "at": 0.5, "whole": True, "color": "accent"}]})
     dur = round(t + 0.2, 2)
@@ -257,7 +257,7 @@ def logo_sting_pro(f: dict, c: Canvas) -> dict:
     """logo (svg/png path or 'brand:logo'), tagline, accent shapes on/off."""
     logo = f.get("logo") or "brand:logo"
     is_svg = str(logo).endswith(".svg") or str(logo).startswith("brand:")
-    lw, lh = c.w * (0.46 if not c.portrait else 0.72), c.h * (0.3 if not c.portrait else 0.18)
+    lw, lh = c.w * (0.56 if not c.portrait else 0.78), c.h * (0.4 if not c.portrait else 0.2)
     L = []
     for k, (sz, col, at) in enumerate([(760, "primary", 0.0), (560, "accent", 0.12), (360, "primary", 0.24)]):
         L.append({"type": "shape", "shape": "ring", "w": round(c.s(sz)), "h": round(c.s(sz)), "y": "46%", "stroke": col, "stroke_width": round(c.s(4 + k * 2)),
@@ -274,7 +274,7 @@ def logo_sting_pro(f: dict, c: Canvas) -> dict:
               "enter": {"preset": "draw", "duration": 1.3} if is_svg else {"preset": "zoom", "duration": 1.0},
               "animate": [{"preset": "shine", "at": 2.1, "duration": 1.0}, {"preset": "pulse", "at": 1.95, "amount": 0.03, "period": 0.5, "until": 2.45}]})
     if f.get("tagline"):
-        L.append({"type": "text", "text": f["tagline"], "font": "body", "size": round(c.s(46)), "weight": 600, "letter_spacing": 0.14, "color": "muted",
+        L.append({"type": "text", "text": f["tagline"], "font": "body", "size": round(c.s(58)), "weight": 700, "letter_spacing": 0 if AR.search(f["tagline"]) else 0.14, "color": "muted",
                   "y": "70%" if not c.portrait else "60%", "align": "center", "in": 2.2, "enter": {"preset": "split-words", "style": "blur", "stagger": 0.08}})
     return {"name": "logo-sting", "size": c.size, "post": _post(grain=4, vignette=0.45, leaks={"intensity": 0.25}, glow=0.35),
             "background": {"type": "animated", "intensity": 0.2},
