@@ -129,6 +129,23 @@ def font_files(latin: str, arabic: str, weight: int, dest: Path) -> tuple[str, s
     return names[0], names[1], warns
 
 
+def caption_geometry(W: int, H: int, style: str = "reels", position: str = "auto", size_scale: float = 1.0) -> dict:
+    """Caption layout shared by the burned-in ASS and the native caption layers written for pro NLEs:
+    font size and outline in px, position name, vertical margin (px from the edge) and ASS alignment."""
+    portrait = H > W * 1.05
+    m = min(W, H)
+    big = style in ("reels", "bold")
+    fs = int(m * (0.088 if big else 0.064 if style == "karaoke" else 0.058) * size_scale * (1.0 if portrait else 0.88))
+    outline = max(2, int(fs * (0.11 if big else 0.08)))
+    pos = position if position != "auto" else ("lower" if portrait and big else "bottom")
+    marginv = int(H * {"bottom": 0.07 if not portrait else 0.16, "lower": 0.27, "middle": 0.45, "top": 0.1}.get(pos, 0.08))
+    align = 8 if pos == "top" else (5 if pos == "middle" else 2)
+    if pos == "middle":
+        marginv = 0
+    return {"big": big, "size": fs, "outline": outline, "position": pos, "margin_v": marginv, "align": align,
+            "margin_lr": int(W * 0.07), "box": style == "boxed", "uppercase_default": big}
+
+
 def build_ass(words: list[dict], W: int, H: int, style: str = "reels", *, per: int = 0, accent: str = "#FFD400",
               text_color: str = "#FFFFFF", font: str = "Montserrat ExtraBold", font_ar: str = "Cairo ExtraBold",
               position: str = "auto", uppercase: bool | None = None, size_scale: float = 1.0) -> tuple[str, list[dict]]:
@@ -145,14 +162,8 @@ def build_ass(words: list[dict], W: int, H: int, style: str = "reels", *, per: i
         nx = chunks[i + 1][0]["start"] if i + 1 < len(chunks) else 1e9
         c_end = min(c[-1]["end"] + 0.35, nx)
         chunks[i] = {"words": c, "start": c_start, "end": max(c_end, c_start + 0.3)}
-    big = style in ("reels", "bold")
-    fs = int(m * (0.088 if big else 0.064 if style == "karaoke" else 0.058) * size_scale * (1.0 if portrait else 0.88))
-    outline = max(2, int(fs * (0.11 if big else 0.08)))
-    pos = position if position != "auto" else ("lower" if portrait and big else "bottom")
-    marginv = int(H * {"bottom": 0.07 if not portrait else 0.16, "lower": 0.27, "middle": 0.45, "top": 0.1}.get(pos, 0.08))
-    align = 8 if pos == "top" else (5 if pos == "middle" else 2)
-    if pos == "middle":
-        marginv = 0
+    g = caption_geometry(W, H, style, position, size_scale)
+    big, fs, outline, pos, marginv, align = g["big"], g["size"], g["outline"], g["position"], g["margin_v"], g["align"]
     up = uppercase if uppercase is not None else big
     tc, ac, blk = ass_color(text_color), ass_color(accent), ass_color("#000000")
     dark = ass_color("#111111")

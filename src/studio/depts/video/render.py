@@ -38,6 +38,7 @@ def render_audio(tl: TL.Timeline, work: Path, warnings: list[str], data: dict) -
         dialog = work / "dialog.wav"
         C.ff([*ins, "-filter_complex_script", str(work / "dialog.txt"), "-map", f"[{lab}]", "-ac", "2", "-ar", "48000",
               "-c:a", "pcm_s24le", str(dialog)], what="audio render")
+        data.setdefault("_stems", {})["dialogue + sound"] = str(dialog)
     ducked = [a for a in tl.audio if a.duck]
     target = _target(tl.loudness)
     if ducked:
@@ -49,6 +50,7 @@ def render_audio(tl: TL.Timeline, work: Path, warnings: list[str], data: dict) -
         bed = work / "bed.wav"
         C.ff([*ins, "-filter_complex_script", str(work / "bed.txt"), "-map", f"[{lab}]", "-ac", "2", "-ar", "48000",
               "-c:a", "pcm_s24le", str(bed)], what="music bed")
+        data.setdefault("_stems", {})["music"] = str(bed)
         if dialog is None:
             warnings.append("ducking needs speech on the timeline — the music plays at its own level")
             dialog = bed
@@ -78,7 +80,7 @@ def _fit_len(wav: Path, dur: float, work: Path) -> Path:
     if abs(info["duration"] - dur) < 0.02:
         return wav
     dest = work / (wav.stem + "-fit.wav")
-    C.ff(["-i", str(wav), "-af", f"apad,atrim=duration={dur:.4f}", "-c:a", "pcm_s24le", str(dest)], what="audio length")
+    C.ff(["-i", str(wav), "-af", f"asetpts=N/SR/TB,apad,atrim=duration={dur:.4f}", "-c:a", "pcm_s24le", str(dest)], what="audio length")
     return dest
 
 
@@ -180,6 +182,12 @@ def make_captions(tl: TL.Timeline, words: list[dict], work: Path, fonts: dict, c
     warnings += fw
     ass, chunks = K.build_ass(words, tl.W, tl.H, cst["style"], per=cst["per"], accent=cst["accent"], font=lat, font_ar=ar,
                               position=cst["position"], uppercase=cst["uppercase"], size_scale=cst["size_scale"])
+    # kept for the pro-NLE project package: the same chunks become native, editable caption layers
+    cst["native"] = {"chunks": [{"start": round(c["start"], 3), "end": round(c["end"], 3),
+                                 "words": [{"word": w["word"], "start": w["start"], "end": w["end"]} for w in c["words"]]}
+                                for c in chunks],
+                     "font": lat, "font_ar": ar, "family": cst.get("font") or fonts.get("head", "Montserrat"), "family_ar": ar_fam,
+                     "geometry": K.caption_geometry(tl.W, tl.H, cst["style"], cst["position"], cst["size_scale"])}
     ap = work / "captions.ass"
     ap.write_text(ass, encoding="utf-8")
     return ap, fd
@@ -195,7 +203,8 @@ def brand_bits(brand: str) -> tuple[dict, dict]:
 
 def render(spec: dict, *, project: str, out: str, name: str, base_dir: Path | None = None, brand: str = "",
            kdenlive: bool = True, validate: bool = True, preset_crf: int = 18, summary: str = "",
-           extra_data: dict | None = None) -> Result:
+           extra_data: dict | None = None, projects="all", project_media: str = "copy", host_map=None,
+           mogrts: bool = False) -> Result:
     dest = C.out_path(project, out, name, ".mp4")
     assets = dest.parent / f"{dest.stem}-assets"
     assets.mkdir(parents=True, exist_ok=True)
@@ -214,6 +223,7 @@ def render(spec: dict, *, project: str, out: str, name: str, base_dir: Path | No
         audio = render_audio(tl, work, warnings, data)
         sub = fonts_dir = None
         srt = ass_keep = None
+        cst = None
         if tl.captions:
             words, segs = caption_words(tl, audio, work, warnings, data)
             if not words:
@@ -280,6 +290,9 @@ def render(spec: dict, *, project: str, out: str, name: str, base_dir: Path | No
                 res.warnings += list(dict.fromkeys(KD.LAST_NOTES))
             except ToolError as e:
                 res.warnings.append(f"Kdenlive project not written: {e}")
+        if projects and projects not in ("none", "off", False):
+            _package(res, tl, dest, name, spec, data, audio, cst if tl.captions and srt else None, srt, ass_keep,
+                     projects, project_media, host_map, mogrts, work)
         if tl.assets:
             res.data["assets"] = [str(a) for a in tl.assets]
         else:
@@ -289,3 +302,45 @@ def render(spec: dict, *, project: str, out: str, name: str, base_dir: Path | No
         return res
     finally:
         shutil.rmtree(work, ignore_errors=True)
+
+
+def _package(res: Result, tl, dest: Path, name: str, spec: dict, data: dict, audio, cst, srt, ass, projects, media, host_map,
+             mogrts: bool, work: Path) -> None:
+    """The same edit as editable projects for every pro app (video/nle) — one portable folder next to the MP4."""
+    from .nle import APPS
+    from .nle import package as PK
+    apps = list(APPS) if projects in (True, "all", None) else [a.strip() for a in (projects if isinstance(projects, list) else str(projects).split(","))]
+    stems = dict(data.pop("_stems", {}) or {})
+    if audio is not None:
+        stems["full mix"] = str(audio)
+    side = {"duck_regions": data.get("duck_regions"), "loudness_target": _target(tl.loudness), "stems": stems}
+    try:
+        if audio is not None and stems.get("dialogue + sound"):
+            m_a, m_d = qc.loudness(Path(audio)), qc.loudness(Path(stems["dialogue + sound"]))
+            if m_a.get("lufs") is not None and m_d.get("lufs") is not None and not data.get("duck_regions"):
+                side["dialog_gain_db"] = round(float(m_a["lufs"]) - float(m_d["lufs"]), 2)
+    except Exception:
+        pass
+    if cst and cst.get("native"):
+        nat = cst["native"]
+        side["captions"] = {"chunks": nat["chunks"], "geometry": nat["geometry"], "style": cst["style"], "family": nat["family"],
+                            "family_ar": nat["family_ar"], "accent": cst["accent"], "uppercase": cst.get("uppercase"),
+                            "srt": str(srt) if srt else None, "ass": str(ass) if ass else None}
+    try:
+        r = PK.build(tl, master=dest, name=name if name not in ("edit", "") else dest.stem, side=side, out_dir=dest.parent, apps=apps,
+                     media=media, host_map=host_map, make_mogrts=mogrts, spec=spec, work=work / "pkg")
+    except Exception as e:
+        import traceback
+        res.warnings.append(f"project package not built: {e}")
+        res.data["package_error"] = traceback.format_exc()[-2000:]
+        return
+    res.files.append(str(Path(r["dir"]) / "OPEN-IN.md"))
+    res.previews.append(r["preview"])
+    res.previews += r.get("gfx_previews", [])
+    bad = {a: v for a, v in r["checks"].items() if v}
+    res.data["project_package"] = {"dir": r["dir"], "apps": apps, "checks": r["checks"], "notes": r["notes"],
+                                   "graphics_native": len(r["doc"]["graphics"]), "captions_native": bool(r["doc"].get("captions"))}
+    for a, v in bad.items():
+        res.warnings += [f"{a}: {x}" for x in v[:3]]
+    res.next_steps.insert(0, f"open the editable projects: {Path(r['dir']).name}/OPEN-IN.md (Premiere, After Effects, Resolve, "
+                             "Final Cut, CapCut, Avid/Pro Tools, Kdenlive)")

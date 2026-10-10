@@ -44,7 +44,8 @@ def video_probe(path: str, sheet: bool = True, project: str = "", out: str = "")
 
 @tool("video")
 def video_edit(timeline: dict | str, brand: str = "", kdenlive: bool = True, project: str = "", out: str = "",
-               name: str = "edit") -> Result:
+               name: str = "edit", projects: str = "all", project_media: str = "copy", host_map: str = "",
+               mogrts: bool = False) -> Result:
     """The editor: render a JSON timeline to MP4 AND write the same edit as an editable Kdenlive
     project (.kdenlive, checked by rendering it headless with melt). Use for anything multi-clip:
     cuts, transitions (dissolve, dip, dip_white, wipe_*, slide_*, push, zoom, iris, blur…), J/L cuts,
@@ -62,12 +63,21 @@ def video_edit(timeline: dict | str, brand: str = "", kdenlive: bool = True, pro
     (a voiceover longer than the picture holds the last still), "grade": "teal_orange", "fade_in", "fade_out", "loudness":
     "youtube"} (a dict, JSON string or .json path; relative paths resolve next to the .json).
     brand: brand kit slug for titles/lower thirds/captions. Returns MP4, .kdenlive, .srt/.ass when
-    captioned, a contact sheet and the melt check preview — LOOK at both."""
+    captioned, a contact sheet and the melt check preview — LOOK at both.
+
+    projects: the same edit as EDITABLE projects in one portable folder "<name> — Project/" next to the
+    MP4 — all (default) | none | comma list of premiere, aftereffects, resolve, fcpx, capcut, avid, kdenlive,
+    otio, edl. Graphics are rebuilt as live text/shape layers, captions as live text, grades as .cube LUTs,
+    plus stems, fonts and OPEN-IN.md. project_media: copy (default, hard-links on the same disk) |
+    reference. host_map: "local_prefix=host_prefix" when the studio runs in a VM/container and the apps
+    see the files elsewhere (e.g. "/sessions/x/mnt/SSD=/Volumes/PortableSSD"). mogrts: the After Effects
+    builder also exports each graphic as a .mogrt for Premiere."""
     base = None
     if isinstance(timeline, str) and not timeline.strip().startswith("{"):
         base = Path(timeline).expanduser().resolve().parent
     spec = TL.load(timeline)
-    return R.render(spec, project=project, out=out, name=name or "edit", base_dir=base, brand=brand, kdenlive=kdenlive)
+    return R.render(spec, project=project, out=out, name=name or "edit", base_dir=base, brand=brand, kdenlive=kdenlive,
+                    projects=projects, project_media=project_media, host_map=host_map or None, mogrts=mogrts)
 
 
 @tool("video")

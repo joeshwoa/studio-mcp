@@ -85,6 +85,7 @@ class Clip:
     generated: bool = False    # rendered by the studio (title card)
     rect_kf: str = ""          # Kdenlive transform keyframes (reframe)
     ax: float = 0.0            # audio micro-crossfade INTO this clip at a cut (s; e.g. 0.015 for text-based edits)
+    meta: dict = field(default_factory=dict)   # what made it (motion tool + args) — native rebuilds in pro NLEs
 
 
 @dataclass
@@ -103,6 +104,7 @@ class Overlay:
     volume_db: float | None = None
     label: str = ""
     has_audio: bool = False
+    meta: dict = field(default_factory=dict)   # motion tool + args → native editable graphics in pro NLEs
 
 
 @dataclass
@@ -232,7 +234,10 @@ def normalize(spec: dict, assets_dir: Path, base_dir: Path | None = None, brand:
             mp4 = Path(next(f for f in r.files if f.endswith(".mp4")))
             tl.assets.append(mp4)
             tl.clips.append(Clip("video", mp4, dur, 0.0, dur, 1.0, has_audio=False, src_w=W, src_h=H, src_dur=dur,
-                                 generated=True, **{**common, "fit": "cover"}))
+                                 generated=True, meta={"tool": "motion_title_card", "type": "title_card",
+                                                       "args": {k: v for k, v in args.items() if k not in ("out", "formats")},
+                                                       "html": next((f for f in r.files if f.endswith(".html")), "")},
+                                 **{**common, "fit": "cover"}))
             continue
         if c.get("color") is not None:
             tl.clips.append(Clip("color", None, _f(c, "duration", 1.0), color=str(c["color"]), **common))
@@ -372,7 +377,10 @@ def _overlay(o: dict, k: int, tl: Timeline, assets_dir: Path, base_dir: Path | N
             if at < 0:
                 tl.warnings.append(f"overlay {k + 1}: shape wipe starts before 0 — clipped")
         tl.warnings += [f"overlay {k + 1} ({tool}): {w}" for w in r.warnings if not w.startswith(("overlay on footage", "edit the"))]
-        return Overlay("alpha", mov, max(0.0, at), dur, label=tool)
+        return Overlay("alpha", mov, max(0.0, at), dur, label=tool,
+                       meta={"tool": tool, "type": typ, "args": {k: v for k, v in args.items() if k not in ("out", "formats")},
+                             "html": next((f for f in r.files if f.endswith(".html")), ""),
+                             "webm": next((f for f in r.files if f.endswith(".webm")), "")})
     src = o.get("src")
     if not src:
         raise ToolError(f"overlay {k + 1} ({typ}): needs src")
@@ -666,10 +674,10 @@ def build_dialog_graph(tl: Timeline) -> tuple[list[str], str, str] | None:
     if not labs:
         return None
     if len(labs) == 1:
-        fl.append(f"[{labs[0]}]apad,atrim=duration={tl.duration:.4f}[aout]")
+        fl.append(f"[{labs[0]}]asetpts=N/SR/TB,apad,atrim=duration={tl.duration:.4f}[aout]")
     else:
         fl.append("".join(f"[{l}]" for l in labs) + f"amix=inputs={len(labs)}:duration=longest:normalize=0:dropout_transition=0,"
-                  f"apad,atrim=duration={tl.duration:.4f}[aout]")
+                  f"asetpts=N/SR/TB,apad,atrim=duration={tl.duration:.4f}[aout]")
     return ins, ";\n".join(fl), "aout"
 
 
@@ -699,5 +707,5 @@ def build_bed_graph(a: AudioTrack, tl: Timeline) -> tuple[list[str], str, str]:
     ins: list[str] = []
     fl: list[str] = []
     lab = _music_chain(AudioTrack(**{**a.__dict__, "volume_db": 0.0}), tl, ins, fl, 0, "m")
-    fl.append(f"[{lab}]apad,atrim=duration={tl.duration:.4f}[bed]")
+    fl.append(f"[{lab}]asetpts=N/SR/TB,apad,atrim=duration={tl.duration:.4f}[bed]")
     return ins, ";\n".join(fl), "bed"
